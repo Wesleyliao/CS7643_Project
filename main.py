@@ -2,6 +2,7 @@ import logging
 import sys
 
 import click
+import torch
 import yaml
 
 from util.dataloader import get_dataloader
@@ -39,6 +40,12 @@ def main(train, test):
     log.info("Starting run...")
 
     # print(f':::Running with config::: \n{yaml.dump(CONFIG, default_flow_style=False)}\n')
+
+    # Check for GPU
+    if torch.cuda.is_available():
+        log.info(f'CUDA available: {torch.cuda.get_device_name(0)}')
+    else:
+        log.info('CUDA is not available.')
 
     # Get dataloaders
     anime_loader = get_dataloader(CONFIG['danbooru_path'])
