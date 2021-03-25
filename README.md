@@ -29,4 +29,16 @@ pre-commit run
 
 ## Download data
 
-Download 
+### FFHQ Dataset
+1. Download photos from [Google Drive](https://drive.google.com/drive/folders/1tZUcXDBeOibC6jcMCtgRRz67pzrAHeHL)
+1. Save the downloaded archives in `/data/ffhq`
+1. Run the extraction script:
+```
+./data/extract_ffhq.sh
+```
+
+### Danbooru 2019 Portraits
+Run download script:
+```
+./data/download_danbooru2019portraits.sh
+```
