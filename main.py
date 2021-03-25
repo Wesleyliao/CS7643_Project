@@ -1,8 +1,23 @@
+import logging
+import sys
+
 import click
 import yaml
 
+from util.dataloader import get_dataloader
+
+# Logging
+log = logging.getLogger(__name__)
+logging.basicConfig(
+    format='[%(asctime)s][%(module)s:%(funcName)s] %(levelname)s - %(message)s',
+    datefmt='%H:%M:%S',
+    stream=sys.stdout,
+    level=logging.INFO,
+)
+
+
 # Open config as global variable
-CONFIG_PATH = './config/test.yml'
+CONFIG_PATH = './config/default.yml'
 with open(CONFIG_PATH, 'r') as stream:
     CONFIG = yaml.safe_load(stream)
 
@@ -21,7 +36,18 @@ def test():
 def main(train, test):
     """Train and test GAN model."""
 
-    print(f'Config: \n{CONFIG}')
+    # print(f':::Running with config::: \n{yaml.dump(CONFIG, default_flow_style=False)}\n')
+
+    # Get dataloaders
+    anime_loader = get_dataloader(CONFIG['danbooru_path'])
+    ffhq_loader = get_dataloader(CONFIG['ffhq_path'])
+
+    # Test dataloader
+    a, b = next(iter(anime_loader))
+    log.info(f'Anime shapes {a.size()}, {b.size()}')
+
+    a, b = next(iter(ffhq_loader))
+    log.info(f'FFHQ shapes {a.size()}, {b.size()}')
 
     if train:
         print('train...')
