@@ -36,6 +36,8 @@ def test():
 def main(train, test):
     """Train and test GAN model."""
 
+    log.info("Starting run...")
+
     # print(f':::Running with config::: \n{yaml.dump(CONFIG, default_flow_style=False)}\n')
 
     # Get dataloaders
