@@ -1,0 +1,6 @@
+# Paths
+data_path: "./data/"
+checkpoint_path: "./checkpoints/"
+
+# Hyperparameters
+lr: 0.1
