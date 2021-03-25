@@ -16,12 +16,7 @@ def test():
 
 
 @click.command()
-@click.option(
-    '--train',
-    default=False,
-    is_flag=True,
-    help='Train model',
-)
+@click.option('--train', default=False, is_flag=True, help='Train model')
 @click.option('--test', default=False, is_flag=True, help='Run test')
 def main(train, test):
     """Train and test GAN model."""
