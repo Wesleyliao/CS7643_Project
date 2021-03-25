@@ -1,7 +1,7 @@
 import click
 import yaml
 
-# Read config
+# Open config as global variable
 CONFIG_PATH = './config/test.yml'
 with open(CONFIG_PATH, 'r') as stream:
     CONFIG = yaml.safe_load(stream)
