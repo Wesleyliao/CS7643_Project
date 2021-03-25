@@ -45,7 +45,7 @@ def main(train, test):
     if torch.cuda.is_available():
         log.info(f'CUDA available: {torch.cuda.get_device_name(0)}')
     else:
-        log.info('CUDA is not available.')
+        log.info('CUDA not available.')
 
     # Get dataloaders
     anime_loader = get_dataloader(CONFIG['danbooru_path'])
