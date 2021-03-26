@@ -48,15 +48,15 @@ def main(train, test):
         log.info('CUDA not available.')
 
     # Get dataloaders
-    anime_loader = get_dataloader(CONFIG['danbooru_path'])
-    ffhq_loader = get_dataloader(CONFIG['ffhq_path'])
+    anime_loader = get_dataloader(CONFIG['danbooru_path'], CONFIG['batch_size'])
+    ffhq_loader = get_dataloader(CONFIG['ffhq_path'], CONFIG['batch_size'])
 
     # Test dataloader
-    a, b = next(iter(anime_loader))
-    log.info(f'Anime shapes {a.size()}, {b.size()}')
+    data, label = next(iter(anime_loader))
+    log.info(f'Anime shapes {data.size()}, {label.size()}')
 
-    a, b = next(iter(ffhq_loader))
-    log.info(f'FFHQ shapes {a.size()}, {b.size()}')
+    data, label = next(iter(ffhq_loader))
+    log.info(f'FFHQ shapes {data.size()}, {label.size()}')
 
     if train:
         print('train...')
