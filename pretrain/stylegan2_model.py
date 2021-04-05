@@ -8,7 +8,6 @@ import copy
 import numbers
 from collections import OrderedDict
 
-import dill
 import numpy as np
 import torch
 from torch import nn
@@ -3010,15 +3009,3 @@ def move_to_device(value, device):
             values[key] = val
         return values, orig_device
     return value, orig_device
-
-
-def main():
-    G = load('../checkpoint/Gs.pth')
-    dill.settings['recurse'] = True
-    with open('stylegan2-generator2.pkl', 'wb') as f:
-        dill.dump(G, f, recurse=True)
-
-
-if __name__ == "__main__":
-    # main()
-    pass
