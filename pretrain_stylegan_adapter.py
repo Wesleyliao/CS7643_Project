@@ -22,9 +22,9 @@ with open(CONFIG_PATH, 'r') as stream:
     CONFIG = yaml.safe_load(stream)
 
 
-def get_pickled_model(path):
+def get_pretrained_stylegan(path):
 
-    log.info(f'Loading existing model {path}')
+    log.info(f'Loading pre-trained StyleGAN-2 model {path}')
     model = stylegan2_model.load(path)
 
     return model
@@ -32,7 +32,7 @@ def get_pickled_model(path):
 
 def main():
 
-    stylegan_model = get_pickled_model(CONFIG['pretrain_stylgan_path'])
+    stylegan_model = get_pretrained_stylegan(CONFIG['pretrain_stylgan_path'])
     print(stylegan_model(torch.randn(1, 512)))
 
 
