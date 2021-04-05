@@ -142,3 +142,6 @@ data/*
 !data/*.bat
 !data/*.sh
 .vscode
+
+# Model checkpoints
+*.pth
