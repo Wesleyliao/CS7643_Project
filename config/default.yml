@@ -1,0 +1,14 @@
+# Data paths
+ffhq_path: "./data/ffhq/"
+danbooru_path: "./data/anime_portraits/"
+
+# Other paths
+checkpoint_path: "./checkpoints"
+output_path: "./outputs"
+
+# Model settings
+model_name: "Test"
+
+# Hyperparameters
+lr: 0.1
+batch_size: 32

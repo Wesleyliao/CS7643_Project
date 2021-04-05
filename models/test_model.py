@@ -1,9 +1,17 @@
-import torch
 import torch.nn as nn
 
-class TestModel(nn.Module):
+
+class Generator(nn.Module):
     def __init__(self):
-        super(TestModel, self).__init__()
+        super(Generator, self).__init__()
+
+    def forward(self, x):
+        return
+
+
+class Discriminator(nn.Module):
+    def __init__(self):
+        super(Discriminator, self).__init__()
 
     def forward(self, x):
         return
