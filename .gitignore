@@ -145,3 +145,4 @@ data/*
 
 # Model checkpoints
 *.pth
+*.pt
