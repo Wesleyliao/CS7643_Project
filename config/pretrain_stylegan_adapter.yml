@@ -6,6 +6,7 @@ danbooru_path: "./data/anime_portraits/"
 checkpoint_path: "./checkpoints"
 output_path: "./outputs"
 pretrain_stylgan_path: "./pretrain/Gs.pth"
+pretrain_resnet_path: "./pretrain/20180402-114759-vggface2.pt"
 
 # Model settings
 model_name: "Pre-trained StyleGAN-2 Adapter"

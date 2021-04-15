@@ -4,6 +4,7 @@ import sys
 import torch
 import yaml
 
+from pretrain import resnet_face_model
 from pretrain import stylegan2_model
 
 # Logging
@@ -30,10 +31,23 @@ def get_pretrained_stylegan(path):
     return model
 
 
+def get_pretrained_resnet(path):
+
+    log.info(f'Loading pre-trained Inception Resnet face recognition model {path}')
+    model = resnet_face_model.InceptionResnetV1(
+        pretrained='vggface2', checkpoint_path=path
+    )
+
+    return model
+
+
 def main():
 
     stylegan_model = get_pretrained_stylegan(CONFIG['pretrain_stylgan_path'])
-    print(stylegan_model(torch.randn(1, 512)))
+    print(stylegan_model(torch.randn(2, 512)).size())
+
+    resnet_model = get_pretrained_resnet(CONFIG['pretrain_resnet_path'])
+    print(resnet_model(torch.randn(2, 3, 160, 160)).size())
 
 
 if __name__ == '__main__':
