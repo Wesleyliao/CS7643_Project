@@ -66,27 +66,40 @@ def train(epoch, data_loader, model, optimizer):
 
     losses = AverageMeter()
 
+    # Mixed precision scaler
+    scaler = torch.cuda.amp.GradScaler()
+
     for idx, (data, _) in enumerate(data_loader):
+
+        optimizer.zero_grad()
 
         if torch.cuda.is_available():
             data = data.cuda()
 
-        optimizer.zero_grad()
-
         # Forward pass
-        anime_img, face_features, anime_features = model(data)
+        # Casts operations to mixed precision
+        with torch.cuda.amp.autocast():
+            anime_img, face_features, anime_features = model(data)
+            criterion = torch.nn.MSELoss()
+            loss = criterion(face_features, anime_features)
 
-        criterion = torch.nn.MSELoss()
-        loss = criterion(face_features, anime_features)
+        # Scales the loss, and calls backward()
+        # to create scaled gradients
+        scaler.scale(loss).backward()
 
-        # Backward pass
-        loss.backward()
-        optimizer.step()
+        # Unscales gradients and calls
+        # or skips optimizer.step()
+        scaler.step(optimizer)
+
+        # Updates the scale for next iteration
+        scaler.update()
 
         # Record loss
         losses.update(loss, anime_img.shape[0])
 
-    log.info(f'Epoch {epoch} loss {losses.avg}')
+        log.info(f'E{epoch}, iter {idx}, loss {loss}')
+
+    log.info(f'--- Epoch {epoch} loss {losses.avg} ---')
 
 
 def main():

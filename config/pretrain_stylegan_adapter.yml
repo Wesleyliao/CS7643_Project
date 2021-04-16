@@ -13,4 +13,4 @@ model_name: "Pre-trained StyleGAN-2 Adapter"
 
 # Hyperparameters
 lr: 0.001
-batch_size: 32
+batch_size: 6
