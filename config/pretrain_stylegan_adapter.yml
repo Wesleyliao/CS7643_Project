@@ -12,5 +12,5 @@ pretrain_resnet_path: "./pretrain/20180402-114759-vggface2.pt"
 model_name: "Pre-trained StyleGAN-2 Adapter"
 
 # Hyperparameters
-lr: 0.1
+lr: 0.001
 batch_size: 32
