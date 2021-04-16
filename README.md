@@ -22,7 +22,7 @@ pip install -r requirements.txt
 
 If needed, install pytorch with CUDA
 ```
-conda install pytorch==1.4.0 torchvision==0.5.0 cudatoolkit=10.1 -c pytorch
+conda install pytorch==1.7.1 torchvision==0.8.2 torchaudio==0.7.2 cudatoolkit=10.1 -c pytorch
 ```
 
 Install pre-commit hooks
