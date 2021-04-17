@@ -62,7 +62,7 @@ def get_pretrained_resnet(path):
     return model
 
 
-def train(epoch, data_loader, model, optimizer):
+def train(epoch, data_loader, model, optimizer, scheduler):
 
     losses = AverageMeter()
 
@@ -94,10 +94,17 @@ def train(epoch, data_loader, model, optimizer):
         # Updates the scale for next iteration
         scaler.update()
 
+        # Update learning rate scheduler
+        scheduler.step()
+
         # Record loss
         losses.update(loss, anime_img.shape[0])
 
         log.info(f'E{epoch}, iter {idx}, loss {loss}')
+
+        # Save every 100
+        if idx % 200 == 0:
+            torch.save(model.state_dict(), './checkpoints/pretrained_adapter.pth')
 
     log.info(f'--- Epoch {epoch} loss {losses.avg} ---')
 
@@ -105,7 +112,9 @@ def train(epoch, data_loader, model, optimizer):
 def main():
 
     # Get portrait dataloader
-    ffhq_loader = get_dataloader(CONFIG['ffhq_path'], CONFIG['batch_size'])
+    ffhq_loader = get_dataloader(
+        CONFIG['ffhq_path'], CONFIG['batch_size'], image_size=160
+    )
 
     # Get pretrained StyleGAN2 generator
     stylegan_model = get_pretrained_stylegan(CONFIG['pretrain_stylgan_path'])
@@ -129,14 +138,17 @@ def main():
 
     # Setup
     best_model = None
-    float('inf')
+    # float('inf')
     optimizer = torch.optim.Adam(model.parameters(), CONFIG['lr'])
+    scheduler = torch.optim.lr_scheduler.CyclicLR(
+        optimizer, base_lr=CONFIG['lr'], max_lr=CONFIG['lr'] * 5, cycle_momentum=False
+    )
 
     # Train
     log.info('Starting training...')
     for i in range(10):
 
-        train(i, ffhq_loader, model, optimizer)
+        train(i, ffhq_loader, model, optimizer, scheduler)
 
     # Save model
     torch.save(best_model.state_dict(), './checkpoints/pretrained_adapter.pth')

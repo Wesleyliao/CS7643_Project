@@ -20,7 +20,7 @@ class Frankenstein(nn.Module):
 
     def forward(self, x):
 
-        x = F.interpolate(x, size=160)
+        # x = F.interpolate(x, size=160)
         # x is (N, 3, 160, 160)
 
         face_features = self.feature_model(x)
