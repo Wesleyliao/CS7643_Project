@@ -1,7 +1,10 @@
 import logging
+import os
 import sys
 
+import click
 import torch
+import torchvision
 import yaml
 
 from models.frankenstein import Frankenstein
@@ -102,14 +105,17 @@ def train(epoch, data_loader, model, optimizer, scheduler):
 
         log.info(f'E{epoch}, iter {idx}, loss {loss}')
 
-        # Save every 100
+        # Save every 200
         if idx % 200 == 0:
-            torch.save(model.state_dict(), './checkpoints/pretrained_adapter.pth')
+            torch.save(model.state_dict(), CONFIG['save_path'])
 
     log.info(f'--- Epoch {epoch} loss {losses.avg} ---')
 
 
-def main():
+@click.command()
+@click.option('--train', default=False, is_flag=True, help='Train model')
+@click.option('--test', default=False, is_flag=True, help='Run test')
+def main(train, test):
 
     # Get portrait dataloader
     ffhq_loader = get_dataloader(
@@ -127,31 +133,56 @@ def main():
     # Get main model
     model = Frankenstein(resnet_model, stylegan_model)
 
-    # Move model to cuda if it is available
-    if torch.cuda.is_available():
-        model = model.cuda()
+    # Load existing weights if they exist
+    if os.path.isfile(CONFIG['save_path']):
 
-    # Log trainable layers
-    for param in model.parameters():
-        if param.requires_grad:
-            log.info(f'Trainable layer: {param.size()} {param.device}')
+        log.info(f"Loading existing weights from {CONFIG['save_path']}")
+        # print('stuff', model.generator.G_synthesis.conv_blocks[7].conv_block[0])
+        model.load_state_dict(torch.load(CONFIG['save_path']), strict=False)
 
-    # Setup
-    best_model = None
-    # float('inf')
-    optimizer = torch.optim.Adam(model.parameters(), CONFIG['lr'])
-    scheduler = torch.optim.lr_scheduler.CyclicLR(
-        optimizer, base_lr=CONFIG['lr'], max_lr=CONFIG['lr'] * 5, cycle_momentum=False
-    )
+    if train:
 
-    # Train
-    log.info('Starting training...')
-    for i in range(10):
+        # Move model to cuda if it is available
+        if torch.cuda.is_available():
+            model = model.cuda()
 
-        train(i, ffhq_loader, model, optimizer, scheduler)
+        # Log trainable layers
+        for param in model.parameters():
+            if param.requires_grad:
+                log.info(f'Trainable layer: {param.size()} {param.device}')
 
-    # Save model
-    torch.save(best_model.state_dict(), './checkpoints/pretrained_adapter.pth')
+        # Setup
+        optimizer = torch.optim.Adam(model.parameters(), CONFIG['lr'])
+        scheduler = torch.optim.lr_scheduler.CyclicLR(
+            optimizer,
+            base_lr=CONFIG['lr'],
+            max_lr=CONFIG['lr'] * 5,
+            cycle_momentum=False,
+        )
+
+        # Train
+        log.info('Starting training...')
+        for i in range(10):
+            train(i, ffhq_loader, model, optimizer, scheduler)
+
+    if test:
+
+        # Get single batch of data
+        data, label = next(iter(ffhq_loader))
+        # data = torch.randn(20, 3, 160, 160)
+
+        # Evaluate
+        model.eval()
+        with torch.no_grad():
+            anime_img, face_features, anime_features = model(data)
+
+        # anime_img = stylegan_model(torch.randn(20, 512))
+
+        # Save images
+        torchvision.utils.save_image(data, os.path.join(CONFIG['out_ffhq_img_path']))
+        torchvision.utils.save_image(
+            anime_img, os.path.join(CONFIG['out_anime_img_path'])
+        )
 
 
 if __name__ == '__main__':
