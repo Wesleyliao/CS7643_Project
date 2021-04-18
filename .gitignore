@@ -141,6 +141,7 @@ cython_debug/
 data/*
 !data/*.bat
 !data/*.sh
+!/data/*test
 .vscode
 
 # Model checkpoints
