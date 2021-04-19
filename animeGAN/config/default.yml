@@ -1,0 +1,20 @@
+# Data paths
+real_path: "./animeGAN/data/real/"
+anime_style_path: "./animeGAN/data/Shinkai/style"
+
+# Other paths
+checkpoint_path: "./checkpoints"
+output_path: "./outputs"
+
+# Model settings
+model_name: "Test"
+input_size: 256
+
+# Hyperparameters
+lr: 0.1
+batch_size: 32
+epochs: 10
+init_epoch: 1
+
+# VGG
+vgg19_pretrained_weights: "./animeGAN/checkpoints/vgg19-dcbb9e9d.pth"
