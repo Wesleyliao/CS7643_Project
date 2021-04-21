@@ -18,6 +18,7 @@ from animeGAN.models.vgg import VGG19
 from animeGAN.models.generator import Generator
 from animeGAN.models.discriminator import Discriminator
 from animeGAN.util.postprocess import ImageGrid
+from animeGAN.util.pbar import get_pbar
 
 # Logging
 log = logging.getLogger(__name__)
@@ -102,7 +103,7 @@ def train(real_img_loader, anime_img_loader, eval_img_loader):
     # training progress trackers
     pretrain_hist = collections.defaultdict(list)
     train_hist = collections.defaultdict(list)
-    for epoch in GET_PBAR(np.arange(start_epoch, epochs), desc='Epoch Progress'):
+    for epoch in get_pbar(np.arange(start_epoch, epochs), desc='Epoch Progress'):
         pretrain = epoch < init_epoch
 
         #####################
@@ -113,7 +114,7 @@ def train(real_img_loader, anime_img_loader, eval_img_loader):
 
         epoch_start_time = time.time()
         recon_loss, gen_loss, disc_loss, batch_time = [], [], [], []
-        pbar = GET_PBAR(zip(real_img_loader, anime_img_loader), total=len(real_img_loader), desc=f'Batch Progress [Epoch {epoch+1} / {epochs}]')
+        pbar = get_pbar(zip(real_img_loader, anime_img_loader), total=len(real_img_loader), desc=f'Batch Progress [Epoch {epoch+1} / {epochs}]')
         for real_batch, anime_imgs_batch in pbar:
             batch_start_time = time.time()
 
@@ -251,12 +252,12 @@ def test():
 @click.command()
 @click.option('--mode', type=click.Choice(['train', 'test'], case_sensitive=False), default='train', help='Train or test mode')
 @click.option('--debug-mode', is_flag=True, help='Specify if running in debug mode')
-@click.option('--notebook', is_flag=True, help='Specify if running from notebook')
 @click.option('--config-path', type=str, default='./animeGAN/config/default.yml', help='Path to config file')
-def main_cli(mode, debug_mode, notebook, config_path):
-    main(mode, debug_mode, notebook, config_path)
+def main_cli(mode, debug_mode, config_path):
+    main(mode, debug_mode, config_path)
 
-def main(mode, debug_mode, notebook, config_path):
+
+def main(mode, debug_mode, config_path):
     """Train and test GAN model."""
 
     log.info("Starting run...")
@@ -274,12 +275,6 @@ def main(mode, debug_mode, notebook, config_path):
             required_num_images = 4
         else:
             required_num_images = None
-
-    global GET_PBAR
-    if notebook:
-        GET_PBAR = tqdm.tqdm_notebook
-    else:
-        GET_PBAR = tqdm.tqdm
 
 
     # print(f':::Running with config::: \n{yaml.dump(CONFIG, default_flow_style=False)}\n')
@@ -312,4 +307,4 @@ def main(mode, debug_mode, notebook, config_path):
 
 
 if __name__ == '__main__':
-    main()
+    main_cli()
