@@ -20,8 +20,9 @@ TODO:
 """
 
 class AnimeGanDataset(Dataset):
-    def __init__(self, image_folder, required_num_images=None, transform=None):
+    def __init__(self, image_folder, anime_folder, required_num_images=None, transform=None):
         self.image_folder = Path(image_folder)
+        self.anime_folder = anime_folder
         self.transform = transform
         self.img_fpaths = [f for f in self.image_folder.iterdir()]
         self.num_images = len(self.img_fpaths)
@@ -96,14 +97,14 @@ class AnimeGanDataset(Dataset):
     def load_image(self, fpath: Path):
         fpath = str(fpath)
         img = self.load_image_as_rgb(fpath)
-        if self.image_folder.name == 'real':
-            return img
-        else:
+        if self.anime_folder:
             # return list of 3 PIL images: original, grayscale and smoothed
             img_gray = self.load_image_as_grayscale(fpath)
             img_smooth_gray = self.load_image_as_smoothed_gray(fpath)
 
             return [img, img_gray, img_smooth_gray]
+        else:
+            return img
 
     def __getitem__(self, idx):
         if torch.is_tensor(idx):
@@ -114,15 +115,15 @@ class AnimeGanDataset(Dataset):
 
         # TODO: paper's code normalizes to [-1, 1] pytorch toTensor() normlizes to [0, 1]. Might cause results to be different
         if self.transform:
-            if self.image_folder.name == 'real':
-                image = self.transform(image)  # C x H x W
-            else:
+            if self.anime_folder:
                 # image is actually 3 sets of images
                 image = torch.stack([self.transform(img) for img in image])  # 3 x C x H x W
+            else:
+                image = self.transform(image)  # C x H x W
         return image
 
 
-def get_dataloader(path: str, batch_size: int, input_size: int, required_num_images=None) -> DataLoader:
+def get_dataloader(path: str, anime_folder: bool, batch_size: int, input_size: int, required_num_images=None, shuffle=True) -> DataLoader:
 
     # Transform train data with augmentation
     transform = transforms.Compose(
@@ -136,10 +137,10 @@ def get_dataloader(path: str, batch_size: int, input_size: int, required_num_ima
     )
 
     # Get dataset
-    dataset = AnimeGanDataset(path, required_num_images=required_num_images, transform=transform)
+    dataset = AnimeGanDataset(path, anime_folder=anime_folder, required_num_images=required_num_images, transform=transform)
 
     # Train loader
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
 
     log.info(f'Created dataloader from {path}')
 

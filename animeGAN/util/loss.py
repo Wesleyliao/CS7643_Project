@@ -6,8 +6,8 @@ l2_loss = nn.MSELoss()
 huber_loss = nn.SmoothL1Loss()
 
 def content_loss(vgg, generated_images, real_images):
-    gen_features = vgg.extract_features(generated_images)
-    real_features = vgg.extract_features(real_images)
+    gen_features = vgg(generated_images)
+    real_features = vgg(real_images)
     return l1_loss(real_features, gen_features)
 
 def style_loss(vgg, generated_images, anime_gray_images):
@@ -19,8 +19,8 @@ def style_loss(vgg, generated_images, anime_gray_images):
         gram /= H * W * C
         return gram
 
-    gen_features = vgg.extract_features(generated_images)
-    anime_gray_features = vgg.extract_features(anime_gray_images)
+    gen_features = vgg(generated_images)
+    anime_gray_features = vgg(anime_gray_images)
     gen_gram = gram_matrix(gen_features)
     anime_gray_gram = gram_matrix(anime_gray_features)
     return l1_loss(gen_gram, anime_gray_gram)
@@ -29,9 +29,9 @@ def style_loss(vgg, generated_images, anime_gray_images):
 def color_loss(generated_images, real_images):
     def rgb_to_yuv(image: torch.Tensor) -> torch.Tensor:
         # RGB image to YUV
-        r = torch.Tensor = image[:, 0, :, :]
-        g = torch.Tensor = image[:, 1, :, :]
-        b = torch.Tensor = image[:, 2, :, :]
+        r = image[:, 0, :, :]
+        g = image[:, 1, :, :]
+        b = image[:, 2, :, :]
 
         y = 0.299 * r + 0.587 * g + 0.114 * b
         u = -0.147 * r - 0.289 * g + 0.436 * b

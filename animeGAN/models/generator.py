@@ -45,6 +45,14 @@ class InvertedResBlock(nn.Module):
         return out
 
 
+class UpSample(nn.Sequential):
+    def __init__(self, in_ch, out_ch, kernel_size=3):
+        super().__init__(
+            nn.Upsample(scale_factor=2),
+            Conv2DNormLReLU(in_ch, out_ch, kernel_size)
+        )
+
+
 class Generator(nn.Module):
     def __init__(self, ):
         super().__init__()
