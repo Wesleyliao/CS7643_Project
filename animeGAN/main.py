@@ -186,8 +186,6 @@ def train(real_img_loader, anime_img_loader, eval_img_loader, debug_mode):
                 gen_loss.append(generator_loss.item())
 
             batch_time.append(time.time() - batch_start_time)
-            if debug_mode:
-                break
 
         batch_time = np.mean(batch_time)
         train_time = time.time() - epoch_start_time
@@ -230,7 +228,7 @@ def train(real_img_loader, anime_img_loader, eval_img_loader, debug_mode):
         #####################
         # Eval
         #####################
-        if debug_mode or epoch % eval_freq == 0 or epoch == epochs - 1 or epoch == init_epoch - 1:
+        if epoch % eval_freq == 0 or epoch == epochs - 1 or epoch == init_epoch - 1:
             generator.eval()
 
             with torch.no_grad():
@@ -262,6 +260,16 @@ def main(mode, debug_mode, config_path):
     with open(config_path, 'r') as stream:
         global CONFIG
         CONFIG = yaml.safe_load(stream)
+        # override CONFIG with debug values for faster training and debugging
+        if debug_mode:
+            CONFIG['batch_size'] = 4
+            CONFIG['epochs'] = 10
+            CONFIG['init_epoch'] = 1
+            CONFIG['eval_freq'] = 1
+            required_num_images = 4
+        else:
+            required_num_images = None
+
 
     # print(f':::Running with config::: \n{yaml.dump(CONFIG, default_flow_style=False)}\n')
 
@@ -272,7 +280,7 @@ def main(mode, debug_mode, config_path):
         log.info('CUDA not available.')
 
     # Get dataloaders
-    real_img_loader = get_dataloader(CONFIG['real_path'], False, CONFIG['batch_size'], CONFIG['input_size'])
+    real_img_loader = get_dataloader(CONFIG['real_path'], False, CONFIG['batch_size'], CONFIG['input_size'], required_num_images=required_num_images)
     anime_img_loader = get_dataloader(CONFIG['anime_style_path'], True, CONFIG['batch_size'], CONFIG['input_size'], required_num_images=len(real_img_loader.dataset))
     eval_img_loader = get_dataloader(CONFIG['eval_path'], False, 8, CONFIG['input_size'], shuffle=False)
 

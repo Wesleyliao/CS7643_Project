@@ -37,7 +37,6 @@ class AnimeGanDataset(Dataset):
 
         # if required_num_images is specified, need to cycle through images for required_num_images by oversampling
         if required_num_images is not None:
-            assert required_num_images >= self.num_images
             extra_cycles = int(math.ceil(required_num_images / self.num_images)) - 1
             img_fpaths = copy.copy(self.img_fpaths)
             for i in range(extra_cycles):
