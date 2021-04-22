@@ -13,7 +13,7 @@ import pickle
 import cv2
 
 from animeGAN.util.dataloader import get_dataloader
-from animeGAN.util.loss import content_loss, style_loss, color_loss, total_variation_loss
+from animeGAN.util.loss import *
 from animeGAN.models.vgg import VGG19
 from animeGAN.models.generator import Generator
 from animeGAN.models.discriminator import Discriminator
@@ -58,6 +58,8 @@ def train(real_img_loader, anime_img_loader, eval_img_loader):
     d_edge_weight = CONFIG['discriminator_edge_weight']
     # vgg
     vgg_pretrain_weights = CONFIG['vgg19_pretrained_weights']
+    # gan
+    gan_loss_type = CONFIG['gan_loss_type']
     # discriminator
     spectral_norm = CONFIG['spectral_norm']
     num_discriminator_layers = CONFIG['num_discriminator_layers']
@@ -67,8 +69,6 @@ def train(real_img_loader, anime_img_loader, eval_img_loader):
     output_dir = Path(CONFIG['output_path'])
     checkpoint_dir = Path(CONFIG['checkpoint_path'])
     export_prefix = CONFIG['export_prefix']
-    # criterions
-    BCE_loss = nn.BCELoss()
 
     # set params
     start_epoch = 0
@@ -81,6 +81,7 @@ def train(real_img_loader, anime_img_loader, eval_img_loader):
     pretrain_hist_fpath = output_dir / f'{export_prefix}_pretrain_hist.pkl'
     train_hist_fpath = output_dir / f'{export_prefix}_train_hist.pkl'
     checkpoint_fpath = checkpoint_dir / f'{export_prefix}.pt'
+    reconstruction_checkpoint_fpath = checkpoint_dir / f'{export_prefix}_recon.pt'
     # move models to gpu
     generator.to(device)
     discriminator.to(device)
@@ -90,11 +91,10 @@ def train(real_img_loader, anime_img_loader, eval_img_loader):
     # output image grid
     img_grid = ImageGrid(output_dir / 'val' / f'{export_prefix}_val.png')
     # get eval images and add to img grid
+    eval_freq = CONFIG['eval_freq']
     eval_batch = next(iter(eval_img_loader))
     eval_batch = eval_batch.to(device)
     img_grid.add_row(eval_batch, 'Orig')
-    # eval freq
-    eval_freq = CONFIG['eval_freq']
 
     # print model argitecture
     log.info(f'Generator Architecture:\n{generator}')
@@ -103,7 +103,10 @@ def train(real_img_loader, anime_img_loader, eval_img_loader):
     # training progress trackers
     pretrain_hist = collections.defaultdict(list)
     train_hist = collections.defaultdict(list)
-    for epoch in get_pbar(np.arange(start_epoch, epochs), desc='Epoch Progress'):
+    pretrain_hist['gan_loss_type'] = gan_loss_type
+    train_hist['gan_loss_type'] = gan_loss_type
+
+    for epoch in get_pbar(np.arange(start_epoch, start_epoch + epochs), desc='Epoch Progress'):
         pretrain = epoch < init_epoch
 
         #####################
@@ -159,15 +162,12 @@ def train(real_img_loader, anime_img_loader, eval_img_loader):
                 d_anime_images = discriminator(anime_batch)
                 d_anime_gray_images = discriminator(anime_gray_batch)
                 d_anime_smooth_gray_images = discriminator(anime_smooth_gray_batch)
-                # real if image is anime else fake (i.e. real images are fake)
-                real = torch.ones(d_generated_images.size()).to(device)
-                fake = torch.zeros(d_generated_images.size()).to(device)
-                discriminator_loss = BCE_loss(d_anime_images, real) * d_real_weight + \
-                                     BCE_loss(d_generated_images, fake) * d_fake_weight + \
-                                     BCE_loss(d_anime_gray_images, fake) * d_gray_weight + \
-                                     BCE_loss(d_anime_smooth_gray_images, fake) * d_edge_weight
 
-                discriminator_loss.backward()
+                d_loss = discriminator_loss(d_anime_images, d_generated_images, d_anime_gray_images,
+                                            d_anime_smooth_gray_images, d_real_weight, d_fake_weight, d_gray_weight,
+                                            d_edge_weight, device, gan_loss_type) * d_adv_weight
+
+                d_loss.backward()
                 optimizer_d.step()
 
                 # train generator
@@ -175,17 +175,16 @@ def train(real_img_loader, anime_img_loader, eval_img_loader):
 
                 generated_images = generator(real_batch)  # don't need to generate again?
                 d_generated_images = discriminator(generated_images)
-                generator_loss = BCE_loss(d_generated_images, real) * g_adv_weight + \
-                                 content_loss(vgg, generated_images, real_batch) * g_content_weight + \
-                                 style_loss(vgg, generated_images, anime_gray_batch) * g_style_weight + \
-                                 color_loss(generated_images, real_batch) * g_color_weight + \
-                                 total_variation_loss(generated_images, device) * g_tv_weight
-                generator_loss *= d_adv_weight
-                generator_loss.backward()
+
+                g_loss = generator_loss(d_generated_images, device, gan_loss_type) * g_adv_weight + \
+                         neural_transfer_loss(generated_images, real_batch, anime_gray_batch, g_content_weight,
+                                              g_style_weight, g_color_weight, g_tv_weight, vgg, device)
+
+                g_loss.backward()
                 optimizer_g.step()
 
-                disc_loss.append(discriminator_loss.item())
-                gen_loss.append(generator_loss.item())
+                disc_loss.append(d_loss.item())
+                gen_loss.append(g_loss.item())
 
             batch_time.append(time.time() - batch_start_time)
 
@@ -205,6 +204,10 @@ def train(real_img_loader, anime_img_loader, eval_img_loader):
             # save pre train hist to file just once
             with open(pretrain_hist_fpath, 'wb') as f:
                 pickle.dump(pretrain_hist, f)
+
+            # save generator weights from reconstruction pretrain
+            checkpoint = dict(epoch=epoch, generator=generator.state_dict(), config=CONFIG)
+            torch.save(checkpoint, reconstruction_checkpoint_fpath)
         else:
             train_epoch = epoch - init_epoch + 1
             disc_loss = np.mean(disc_loss)
@@ -222,10 +225,10 @@ def train(real_img_loader, anime_img_loader, eval_img_loader):
             with open(train_hist_fpath, 'wb') as f:
                 pickle.dump(train_hist, f)
 
-        if epoch % 2 == 0 or epoch == epochs - 1:  # save checkpoint every 2 epoch or last epoch
-            checkpoint = dict(epoch=epoch, generator=generator.state_dict(),
-                              discriminator=discriminator.state_dict())
-            torch.save(checkpoint, checkpoint_fpath)
+        # save checkpoint after every epoch
+        checkpoint = dict(epoch=epoch, generator=generator.state_dict(), discriminator=discriminator.state_dict(),
+                          config=CONFIG)
+        torch.save(checkpoint, checkpoint_fpath)
 
         #####################
         # Eval

@@ -8,12 +8,13 @@ checkpoint_path: "./animeGAN/checkpoints"
 output_path: "./animeGAN/outputs"
 
 # Export settings
-export_prefix: "trial"
+export_prefix: "trial2"
 
 # Model settings
 model_name: "Test"
 input_size: 256
 eval_freq: 5
+gan_loss_type: "lsgan"
 # Discriminator
 num_discriminator_layers: 3
 spectral_norm: True
