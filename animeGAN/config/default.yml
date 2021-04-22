@@ -6,16 +6,16 @@ eval_path: "./data/ffhq_test/img"
 # Other paths
 checkpoint_path: "./animeGAN/checkpoints"
 output_path: "./animeGAN/outputs"
-load_checkpoint_fpath: "./animeGAN/checkpoints/trial2.pt"
-load_history: True
+load_checkpoint_fpath: "./animeGAN/checkpoints/reconstruction.pt"
+load_history: False
 
 # Export settings
-export_prefix: "trial2b"
+export_prefix: "train_3"
 
 # Model settings
 model_name: "Test"
 input_size: 256
-eval_freq: 5
+eval_freq: 2
 gan_loss_type: "lsgan"
 # Discriminator
 num_discriminator_layers: 3
@@ -26,12 +26,12 @@ lr_generator_init: 0.0002
 lr_generator: 0.00002
 lr_discriminator: 0.00004
 batch_size: 12
-epochs: 101
+train_epochs: 101
 init_epoch: 10
 
 # weights
 generator_adversarial_weight: 300
-generator_content_weight: 1.5
+generator_content_weight: 2.5
 generator_style_weight: 2.5
 generator_color_weight: 10
 generator_tv_weight: 1

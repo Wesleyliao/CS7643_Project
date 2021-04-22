@@ -30,15 +30,16 @@ logging.basicConfig(
 )
 
 def load_checkpoint(fpath, generator, discriminator, optimizer_g, optimizer_d):
-    log.info(f'Loading checking {fpath}')
+    # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     checkpoint = torch.load(fpath)
     last_finished_epoch = checkpoint['epoch']
     generator.load_state_dict(checkpoint['generator'])
-    discriminator.load_state_dict(checkpoint['discriminator'])
-    if 'optimizer_g' in checkpoint and optimizer_g:
-        optimizer_g.load_state_dict(checkpoint['optimizer_g'])
-    if 'optimizer_d' in checkpoint and optimizer_d:
-        optimizer_d.load_state_dict(checkpoint['optimizer_d'])
+    if 'discriminator' in checkpoint and discriminator:
+        discriminator.load_state_dict(checkpoint['discriminator'])
+    # if 'optimizer_g' in checkpoint and optimizer_g:
+    #     optimizer_g.load_state_dict(checkpoint['optimizer_g'])
+    # if 'optimizer_d' in checkpoint and optimizer_d:
+    #     optimizer_d.load_state_dict(checkpoint['optimizer_d'])
     start_epoch = last_finished_epoch + 1
     return start_epoch
 
@@ -49,7 +50,7 @@ def load_train_hists(fpath):
 
 def train(real_img_loader, anime_img_loader, eval_img_loader):
     # extract training params from yaml config
-    epochs = CONFIG['epochs']
+    train_epochs = CONFIG['train_epochs']
     init_epoch = CONFIG['init_epoch']
     batch_size = CONFIG['batch_size']
     # learning rates
@@ -101,34 +102,37 @@ def train(real_img_loader, anime_img_loader, eval_img_loader):
     else:
         start_epoch = 0
     # training progress trackers
+    pretrain_hist = collections.defaultdict(list)
+    train_hist = collections.defaultdict(list)
+    pretrain_hist['gan_loss_type'] = gan_loss_type
+    train_hist['gan_loss_type'] = gan_loss_type
     if load_history:
-        pretrain_hist = load_train_hists(output_dir / f'{load_checkpoint_fpath.stem}_pretrain_hist.pkl')
+        if (output_dir / f'{load_checkpoint_fpath.stem}_pretrain_hist.pkl').exists():
+            pretrain_hist = load_train_hists(output_dir / f'{load_checkpoint_fpath.stem}_pretrain_hist.pkl')
         train_hist = load_train_hists(output_dir / f'{load_checkpoint_fpath.stem}_train_hist.pkl')
         log.info(f'Loaded existing training history')
-    else:
-        pretrain_hist = collections.defaultdict(list)
-        train_hist = collections.defaultdict(list)
-        pretrain_hist['gan_loss_type'] = gan_loss_type
-        train_hist['gan_loss_type'] = gan_loss_type
+
     # move models to gpu
     generator.to(device)
     discriminator.to(device)
     vgg.to(device)
     # set model modes
     vgg.eval()
-    # output image grid
-    img_grid = ImageGrid(output_dir / 'val' / f'{export_prefix}_val.png')
     # get eval images and add to img grid
     eval_freq = CONFIG['eval_freq']
     eval_batch = next(iter(eval_img_loader))
     eval_batch = eval_batch.to(device)
+    # output image grid
+    #TODO: load existing image into image grid so we can keep adding to it
+    img_grid = ImageGrid(output_dir / 'val' / f'{export_prefix}_val.png')
     img_grid.add_row(eval_batch, 'Orig')
-
+    # epochs
+    total_epochs = start_epoch + train_epochs
     # print model architecture
     # log.info(f'Generator Architecture:\n{generator}')
     # log.info(f'Discriminator Architecture:\n{discriminator}')
 
-    for epoch in get_pbar(np.arange(start_epoch, start_epoch + epochs), desc='Epoch Progress'):
+    for epoch in get_pbar(np.arange(start_epoch, total_epochs), desc='Epoch Progress'):
         pretrain = epoch < init_epoch
 
         #####################
@@ -139,7 +143,7 @@ def train(real_img_loader, anime_img_loader, eval_img_loader):
 
         epoch_start_time = time.time()
         recon_loss, gen_loss, disc_loss, batch_time = [], [], [], []
-        pbar = get_pbar(zip(real_img_loader, anime_img_loader), total=len(real_img_loader), desc=f'Batch Progress [Epoch {epoch+1} / {epochs}]')
+        pbar = get_pbar(zip(real_img_loader, anime_img_loader), total=len(real_img_loader), desc=f'Batch Progress [Epoch {epoch+1} / {total_epochs}]')
         for real_batch, anime_imgs_batch in pbar:
             batch_start_time = time.time()
 
@@ -241,7 +245,7 @@ def train(real_img_loader, anime_img_loader, eval_img_loader):
             train_hist['gen_loss'].append(gen_loss)
             train_hist['epoch_time'].append(train_time)
             train_hist['batch_time'].append(batch_time)
-            print(f'[{train_epoch}/{epochs - init_epoch} Train]\t\tDisc loss {disc_loss:.02f}\t\t'
+            print(f'[{train_epoch}/{total_epochs - init_epoch} Train]\t\tDisc loss {disc_loss:.02f}\t\t'
                   f'Gen loss {gen_loss:.02f}\t\tEpoch time {train_time:.02f}\t\tBatch time {batch_time:.02f}')
 
             # save train hist to file
@@ -256,7 +260,7 @@ def train(real_img_loader, anime_img_loader, eval_img_loader):
         #####################
         # Eval
         #####################
-        if epoch % eval_freq == 0 or epoch == epochs - 1 or epoch == init_epoch - 1:
+        if epoch % eval_freq == 0 or epoch == total_epochs - 1 or epoch == init_epoch - 1:
             generator.eval()
 
             with torch.no_grad():
@@ -271,8 +275,41 @@ def train(real_img_loader, anime_img_loader, eval_img_loader):
                 img_grid.write()
 
 
-def test():
-    pass
+def test(eval_img_loader):
+    # cuda
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    # fpath
+    output_dir = Path(CONFIG['output_path'])
+    export_prefix = CONFIG['export_prefix']
+    load_checkpoint_fpath = Path(CONFIG['load_checkpoint_fpath']) if CONFIG['load_checkpoint_fpath'] else None
+
+    # model params
+    generator = Generator()
+    if load_checkpoint_fpath and load_checkpoint_fpath.exists():
+        _ = load_checkpoint(load_checkpoint_fpath, generator, None, None, None)
+        log.info(f'Loaded from checkpoint {load_checkpoint_fpath}')
+    else:
+        return
+
+    # move models to gpu
+    generator.to(device)
+    eval_batch = next(iter(eval_img_loader))
+    eval_batch = eval_batch.to(device)
+    # output image grid
+    img_grid = ImageGrid(output_dir / 'val' / f'{export_prefix}_val.png')
+    img_grid.add_row(eval_batch, 'Orig')
+
+    #####################
+    # Eval
+    #####################
+    generator.eval()
+
+    with torch.no_grad():
+        generated_images = generator(eval_batch)
+        # add to img grid
+        img_grid.add_row(generated_images, 'eval', None)
+        # save images
+        img_grid.write()
 
 
 @click.command()
@@ -329,7 +366,7 @@ def main(mode, debug_mode, config_path):
     if mode.lower() == 'train':
         train(real_img_loader, anime_img_loader, eval_img_loader)
     if mode.lower() == 'test':
-        print('test...')
+        test(eval_img_loader)
 
 
 if __name__ == '__main__':
