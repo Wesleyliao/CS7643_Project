@@ -6,9 +6,11 @@ eval_path: "./data/ffhq_test/img"
 # Other paths
 checkpoint_path: "./animeGAN/checkpoints"
 output_path: "./animeGAN/outputs"
+load_checkpoint_fpath: "./animeGAN/checkpoints/trial2.pt"
+load_history: True
 
 # Export settings
-export_prefix: "trial2"
+export_prefix: "trial2b"
 
 # Model settings
 model_name: "Test"

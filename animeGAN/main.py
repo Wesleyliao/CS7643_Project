@@ -29,12 +29,23 @@ logging.basicConfig(
     level=logging.INFO,
 )
 
+def load_checkpoint(fpath, generator, discriminator, optimizer_g, optimizer_d):
+    log.info(f'Loading checking {fpath}')
+    checkpoint = torch.load(fpath)
+    last_finished_epoch = checkpoint['epoch']
+    generator.load_state_dict(checkpoint['generator'])
+    discriminator.load_state_dict(checkpoint['discriminator'])
+    if 'optimizer_g' in checkpoint and optimizer_g:
+        optimizer_g.load_state_dict(checkpoint['optimizer_g'])
+    if 'optimizer_d' in checkpoint and optimizer_d:
+        optimizer_d.load_state_dict(checkpoint['optimizer_d'])
+    start_epoch = last_finished_epoch + 1
+    return start_epoch
 
-def save_model(model, fpath):
-    torch.save(model.state_dict(), fpath)
-
-def load_model(model, fpath):
-    model.load_state_dict(torch.load(fpath))
+def load_train_hists(fpath):
+    with open(fpath, 'rb') as f:
+        hist = pickle.load(f)
+        return hist
 
 def train(real_img_loader, anime_img_loader, eval_img_loader):
     # extract training params from yaml config
@@ -69,19 +80,36 @@ def train(real_img_loader, anime_img_loader, eval_img_loader):
     output_dir = Path(CONFIG['output_path'])
     checkpoint_dir = Path(CONFIG['checkpoint_path'])
     export_prefix = CONFIG['export_prefix']
+    load_checkpoint_fpath = Path(CONFIG['load_checkpoint_fpath']) if CONFIG['load_checkpoint_fpath'] else None
+    load_history = CONFIG['load_history']
 
-    # set params
-    start_epoch = 0
-    generator = Generator()
-    discriminator = Discriminator(num_discriminator_layers=num_discriminator_layers, spectral_norm=spectral_norm)
-    vgg = VGG19(init_weights=vgg_pretrain_weights, feature_mode=True)
-    optimizer_g = torch.optim.Adam(generator.parameters(), lr=lr_g_init, betas=(0.5, 0.999))
-    optimizer_d = torch.optim.Adam(discriminator.parameters(), lr=lr_d, betas=(0.5, 0.999))
     # model export fpath
     pretrain_hist_fpath = output_dir / f'{export_prefix}_pretrain_hist.pkl'
     train_hist_fpath = output_dir / f'{export_prefix}_train_hist.pkl'
     checkpoint_fpath = checkpoint_dir / f'{export_prefix}.pt'
     reconstruction_checkpoint_fpath = checkpoint_dir / f'{export_prefix}_recon.pt'
+    # model params
+    generator = Generator()
+    discriminator = Discriminator(num_discriminator_layers=num_discriminator_layers, spectral_norm=spectral_norm)
+    vgg = VGG19(init_weights=vgg_pretrain_weights, feature_mode=True)
+    optimizer_g = torch.optim.Adam(generator.parameters(), lr=lr_g_init, betas=(0.5, 0.999))
+    optimizer_d = torch.optim.Adam(discriminator.parameters(), lr=lr_d, betas=(0.5, 0.999))
+    if load_checkpoint_fpath and load_checkpoint_fpath.exists():
+        start_epoch = load_checkpoint(load_checkpoint_fpath, generator, discriminator, optimizer_g, optimizer_d)
+        log.info(f'Loaded from checkpoint {load_checkpoint_fpath}')
+        log.info(f'Continuing with starting epoch: {start_epoch}')
+    else:
+        start_epoch = 0
+    # training progress trackers
+    if load_history:
+        pretrain_hist = load_train_hists(output_dir / f'{load_checkpoint_fpath.stem}_pretrain_hist.pkl')
+        train_hist = load_train_hists(output_dir / f'{load_checkpoint_fpath.stem}_train_hist.pkl')
+        log.info(f'Loaded existing training history')
+    else:
+        pretrain_hist = collections.defaultdict(list)
+        train_hist = collections.defaultdict(list)
+        pretrain_hist['gan_loss_type'] = gan_loss_type
+        train_hist['gan_loss_type'] = gan_loss_type
     # move models to gpu
     generator.to(device)
     discriminator.to(device)
@@ -96,15 +124,9 @@ def train(real_img_loader, anime_img_loader, eval_img_loader):
     eval_batch = eval_batch.to(device)
     img_grid.add_row(eval_batch, 'Orig')
 
-    # print model argitecture
-    log.info(f'Generator Architecture:\n{generator}')
-    log.info(f'Discriminator Architecture:\n{discriminator}')
-
-    # training progress trackers
-    pretrain_hist = collections.defaultdict(list)
-    train_hist = collections.defaultdict(list)
-    pretrain_hist['gan_loss_type'] = gan_loss_type
-    train_hist['gan_loss_type'] = gan_loss_type
+    # print model architecture
+    # log.info(f'Generator Architecture:\n{generator}')
+    # log.info(f'Discriminator Architecture:\n{discriminator}')
 
     for epoch in get_pbar(np.arange(start_epoch, start_epoch + epochs), desc='Epoch Progress'):
         pretrain = epoch < init_epoch
@@ -206,7 +228,8 @@ def train(real_img_loader, anime_img_loader, eval_img_loader):
                 pickle.dump(pretrain_hist, f)
 
             # save generator weights from reconstruction pretrain
-            checkpoint = dict(epoch=epoch, generator=generator.state_dict(), config=CONFIG)
+            checkpoint = dict(epoch=epoch, generator=generator.state_dict(), optimizer_g=optimizer_g.state_dict(),
+                              optimizer_d=optimizer_d.state_dict(), config=CONFIG)
             torch.save(checkpoint, reconstruction_checkpoint_fpath)
         else:
             train_epoch = epoch - init_epoch + 1
@@ -227,7 +250,7 @@ def train(real_img_loader, anime_img_loader, eval_img_loader):
 
         # save checkpoint after every epoch
         checkpoint = dict(epoch=epoch, generator=generator.state_dict(), discriminator=discriminator.state_dict(),
-                          config=CONFIG)
+                          optimizer_g=optimizer_g.state_dict(), optimizer_d=optimizer_d.state_dict(), config=CONFIG)
         torch.save(checkpoint, checkpoint_fpath)
 
         #####################
@@ -271,8 +294,8 @@ def main(mode, debug_mode, config_path):
         CONFIG = yaml.safe_load(stream)
         # override CONFIG with debug values for faster training and debugging
         if debug_mode:
+            CONFIG['epochs'] = 2
             CONFIG['batch_size'] = 4
-            CONFIG['epochs'] = 10
             CONFIG['init_epoch'] = 1
             CONFIG['eval_freq'] = 1
             required_num_images = 4
