@@ -2,14 +2,12 @@
 https://github.com/NVlabs/MUNIT/blob/18bcda1e6f31e8e9b9bf6f14f6fa2dd0a383ee66/networks.py#L147
 MUNIT
 '''
-
-from torch import nn
-from torch.autograd import Variable
 import torch
-import torch.nn.functional as F
+from torch import nn
+
 try:
-    from itertools import izip as zip
-except ImportError: # will be 3.x series
+    pass
+except ImportError:  # will be 3.x series
     pass
 
 
@@ -26,39 +24,50 @@ class Generator(nn.Module):
         n_res = params['n_res']
         activ = params['activ']
         pad_type = params['pad_type']
-        mlp_dim = params['mlp_dim']
+        params['mlp_dim']
 
         # style encoder
-        self.enc_style = StyleEncoder(4, input_dim, dim, style_dim, norm='none', activ=activ, pad_type=pad_type)
+        self.enc_style = StyleEncoder(
+            4, input_dim, dim, style_dim, norm='none', activ=activ, pad_type=pad_type
+        )
 
         # content encoder
-        self.enc_content = ContentEncoder(n_downsample, n_res, input_dim, dim, 'in', activ, pad_type=pad_type)
+        self.enc_content = ContentEncoder(
+            n_downsample, n_res, input_dim, dim, 'in', activ, pad_type=pad_type
+        )
 
-
-        self.dec = Decoder(n_downsample, n_res, self.enc_content.output_dim, input_dim, res_norm='adain', activ=activ, pad_type=pad_type)
+        self.dec = Decoder(
+            n_downsample,
+            n_res,
+            self.enc_content.output_dim,
+            input_dim,
+            res_norm='adain',
+            activ=activ,
+            pad_type=pad_type,
+        )
 
         # param generator to generate style parameters
         self.style_params = self.style_param_gen()
 
     def forward(self, images_x, images_y):
-        '''
+        """
 
         :param images_x: Content Image
         :param images_y: Style Image
         :return: reconstructed image
-        '''
+        """
         # reconstruct an image
         content, style = self.encode(images_x, images_y)
         images_recon = self.decode(content, style)
         return images_recon
 
     def encode(self, images_x, images_y):
-        '''
+        """
 
         :param images_x: content image
         :param images_y: style image
         :return: encoded content image, style params (beta, lambda) = (mean, stdev)
-        '''
+        """
         # encode an image to its content and style codes
         style = self.enc_style(images_y)
         content = self.enc_content(images_x)
@@ -75,29 +84,29 @@ class Generator(nn.Module):
         # assign the adain_params to the AdaIN layers in model
         for m in model.modules():
             if m.__class__.__name__ == "AdaptiveInstanceNorm2d":
-                mean = adain_params[:, :m.num_features]
-                std = adain_params[:, m.num_features:2*m.num_features]
+                mean = adain_params[:, : m.num_features]
+                std = adain_params[:, m.num_features : 2 * m.num_features]
                 m.bias = mean.contiguous().view(-1)
                 m.weight = std.contiguous().view(-1)
-                if adain_params.size(1) > 2*m.num_features:
-                    adain_params = adain_params[:, 2*m.num_features:]
+                if adain_params.size(1) > 2 * m.num_features:
+                    adain_params = adain_params[:, 2 * m.num_features :]
 
     def get_num_adain_params(self, model):
         # return the number of AdaIN parameters needed by the model
         num_adain_params = 0
         for m in model.modules():
             if m.__class__.__name__ == "AdaptiveInstanceNorm2d":
-                num_adain_params += 2*m.num_features
+                num_adain_params += 2 * m.num_features
         return num_adain_params
 
     def adapolin(self, x, y):
-        #eps = 1e-5
+        # eps = 1e-5
         eps = 0.0001
-        mean_x = torch.mean(x, dim=[2,3])
-        mean_y = torch.mean(y, dim=[2,3])
+        mean_x = torch.mean(x, dim=[2, 3])
+        mean_y = torch.mean(y, dim=[2, 3])
 
-        std_x = torch.std(x, dim=[2,3])
-        std_y = torch.std(y, dim=[2,3])
+        std_x = torch.std(x, dim=[2, 3])
+        std_y = torch.std(y, dim=[2, 3])
 
         mean_x = mean_x.unsqueeze(-1).unsqueeze(-1)
         mean_y = mean_y.unsqueeze(-1).unsqueeze(-1)
@@ -105,28 +114,46 @@ class Generator(nn.Module):
         std_x = std_x.unsqueeze(-1).unsqueeze(-1) + eps
         std_y = std_y.unsqueeze(-1).unsqueeze(-1) + eps
 
-        out = (x - mean_x)/ std_x * std_y + mean_y
-
+        out = (x - mean_x) / std_x * std_y + mean_y
 
         return out
-
 
 
 ##################################################################################
 # Encoder and Decoders
 ##################################################################################
 
+
 class StyleEncoder(nn.Module):
     def __init__(self, n_downsample, input_dim, dim, style_dim, norm, activ, pad_type):
         super(StyleEncoder, self).__init__()
         self.model = []
-        self.model += [Conv2dBlock(input_dim, dim, 7, 1, 3, norm=norm, activation=activ, pad_type=pad_type)]
+        self.model += [
+            Conv2dBlock(
+                input_dim, dim, 7, 1, 3, norm=norm, activation=activ, pad_type=pad_type
+            )
+        ]
         for i in range(2):
-            self.model += [Conv2dBlock(dim, 2 * dim, 4, 2, 1, norm=norm, activation=activ, pad_type=pad_type)]
+            self.model += [
+                Conv2dBlock(
+                    dim,
+                    2 * dim,
+                    4,
+                    2,
+                    1,
+                    norm=norm,
+                    activation=activ,
+                    pad_type=pad_type,
+                )
+            ]
             dim *= 2
         for i in range(n_downsample - 2):
-            self.model += [Conv2dBlock(dim, dim, 4, 2, 1, norm=norm, activation=activ, pad_type=pad_type)]
-        self.model += [nn.AdaptiveAvgPool2d(1)] # global average pooling
+            self.model += [
+                Conv2dBlock(
+                    dim, dim, 4, 2, 1, norm=norm, activation=activ, pad_type=pad_type
+                )
+            ]
+        self.model += [nn.AdaptiveAvgPool2d(1)]  # global average pooling
         self.model += [nn.Conv2d(dim, style_dim, 1, 1, 0)]
         self.model = nn.Sequential(*self.model)
         self.output_dim = dim
@@ -134,51 +161,104 @@ class StyleEncoder(nn.Module):
     def forward(self, x):
         return self.model(x)
 
+
 class ContentEncoder(nn.Module):
     def __init__(self, n_downsample, n_res, input_dim, dim, norm, activ, pad_type):
         super(ContentEncoder, self).__init__()
         self.model = []
-        self.model += [Conv2dBlock(input_dim, dim, 7, 1, 3, norm=norm, activation=activ, pad_type=pad_type)]
+        self.model += [
+            Conv2dBlock(
+                input_dim, dim, 7, 1, 3, norm=norm, activation=activ, pad_type=pad_type
+            )
+        ]
         # downsampling blocks
         for i in range(n_downsample):
-            self.model += [Conv2dBlock(dim, 2 * dim, 4, 2, 1, norm=norm, activation=activ, pad_type=pad_type)]
+            self.model += [
+                Conv2dBlock(
+                    dim,
+                    2 * dim,
+                    4,
+                    2,
+                    1,
+                    norm=norm,
+                    activation=activ,
+                    pad_type=pad_type,
+                )
+            ]
             dim *= 2
         # residual blocks
-        self.model += [ResBlocks(n_res, dim, norm=norm, activation=activ, pad_type=pad_type)]
+        self.model += [
+            ResBlocks(n_res, dim, norm=norm, activation=activ, pad_type=pad_type)
+        ]
         self.model = nn.Sequential(*self.model)
         self.output_dim = dim
 
     def forward(self, x):
         return self.model(x)
 
+
 class Decoder(nn.Module):
-    #TODO: change to the AniGan Decoder
-    def __init__(self, n_fst, n_res, dim, output_dim, res_norm='adain', activ='relu', pad_type='zero'):
+    # TODO: change to the AniGan Decoder
+    def __init__(
+        self,
+        n_fst,
+        n_res,
+        dim,
+        output_dim,
+        res_norm='adain',
+        activ='relu',
+        pad_type='zero',
+    ):
         super(Decoder, self).__init__()
 
         self.model = []
         # asc blocks: Conv, AdaPOLIN * 4
-        self.model += [Conv(),
-                       AdaPOLIN(),
-                       Conv(),
-                       AdaPOLIN(),
-                       Conv(),
-                       AdaPOLIN(),
-                       Conv(),
-                       AdaPOLIN()]
+        self.model += [
+            Conv(),
+            AdaPOLIN(),
+            Conv(),
+            AdaPOLIN(),
+            Conv(),
+            AdaPOLIN(),
+            Conv(),
+            AdaPOLIN(),
+        ]
         # fst blocks
         for i in range(n_fst):
-            self.model += [nn.Updample(scale_factor=2),
-                           Conv2dBlock(dim, dim // 2, 5, 1, 2, norm='ln', activation=activ, pad_type=pad_type),
-                           PoLIN(),
-                           Conv(),
-                           AdaPOLIN()]
+            self.model += [
+                nn.Updample(scale_factor=2),
+                Conv2dBlock(
+                    dim,
+                    dim // 2,
+                    5,
+                    1,
+                    2,
+                    norm='ln',
+                    activation=activ,
+                    pad_type=pad_type,
+                ),
+                PoLIN(),
+                Conv(),
+                AdaPOLIN(),
+            ]
         # fully connected last layer? to get to the right dimension
-        self.model += [Conv2dBlock(dim, output_dim, 7, 1, 3, norm='none', activation='tanh', pad_type=pad_type)]
+        self.model += [
+            Conv2dBlock(
+                dim,
+                output_dim,
+                7,
+                1,
+                3,
+                norm='none',
+                activation='tanh',
+                pad_type=pad_type,
+            )
+        ]
         self.model = nn.Sequential(*self.model)
 
     def forward(self, x):
         return self.model(x)
+
 
 ##################################################################################
 # Sequential Models
@@ -188,11 +268,14 @@ class ResBlocks(nn.Module):
         super(ResBlocks, self).__init__()
         self.model = []
         for i in range(num_blocks):
-            self.model += [ResBlock(dim, norm=norm, activation=activation, pad_type=pad_type)]
+            self.model += [
+                ResBlock(dim, norm=norm, activation=activation, pad_type=pad_type)
+            ]
         self.model = nn.Sequential(*self.model)
 
     def forward(self, x):
         return self.model(x)
+
 
 class MLP(nn.Module):
     def __init__(self, input_dim, output_dim, dim, n_blk, norm='none', activ='relu'):
@@ -202,65 +285,80 @@ class MLP(nn.Module):
         self.model += [LinearBlock(input_dim, dim, norm=norm, activation=activ)]
         for i in range(n_blk - 2):
             self.model += [LinearBlock(dim, dim, norm=norm, activation=activ)]
-        self.model += [LinearBlock(dim, output_dim, norm='none', activation='none')] # no output activations
+        self.model += [
+            LinearBlock(dim, output_dim, norm='none', activation='none')
+        ]  # no output activations
         self.model = nn.Sequential(*self.model)
 
     def forward(self, x):
         return self.model(x.view(x.size(0), -1))
 
+
 ##################################################################################
 # Basic Blocks
 ##################################################################################
 
-class POLIN(nn.Module):
+
+class PoLIN(nn.Module):
     def __init__(self, eps=1e-5):
-        super(POLIN, self).__init__()
+        super(PoLIN, self).__init__()
         self.eps = eps
 
     def forward(self, input):
-        in_mean, in_var = torch.mean(input, dim=[2, 3], keepdim=True), torch.var(input, dim=[2, 3], keepdim=True) #instance
-        out_in = (input - in_mean) /(in_var + self.eps)
-        ln_mean, ln_var = torch.mean(input, dim=[1, 2, 3], keepdim=True), torch.var(input, dim=[1, 2, 3],
-                                                                                    keepdim=True) #layer
-        out_ln = (input - ln_mean) /(ln_var + self.eps)
+        in_mean, in_var = torch.mean(input, dim=[2, 3], keepdim=True), torch.var(
+            input, dim=[2, 3], keepdim=True
+        )  # instance
+        out_in = (input - in_mean) / (in_var + self.eps)
+        ln_mean, ln_var = torch.mean(input, dim=[1, 2, 3], keepdim=True), torch.var(
+            input, dim=[1, 2, 3], keepdim=True
+        )  # layer
+        out_ln = (input - ln_mean) / (ln_var + self.eps)
 
-        #channel wise concat
-        out = torch.cat((out_in, out_ln),3) #find the channel dim, assume channel = dim 3
+        # channel wise concat
+        out = torch.cat(
+            (out_in, out_ln), 3
+        )  # find the channel dim, assume channel = dim 3
         in_c = out.shape[3]
         out_c = input.shape[3]
-        #1*1 convolution, from out channels back to in channels
+        # 1*1 convolution, from out channels back to in channels
         m = nn.Conv2d(in_c, out_c, (1, 1))
 
         out = m(out)
 
         return out
 
-class adaPOLIN(nn.Module):
+
+class AdaPOLIN(nn.Module):
     def __init__(self, eps=1e-5):
-        super(adaPOLIN, self).__init__()
+        super(AdaPOLIN, self).__init__()
         self.eps = eps
-        #self.in_dim = in_dim
-        #self.out_dim = out_dim
-        #self.conv = nn.Conv2d(self.in_c, self.out_c, (1, 1), bias = 0)
+        # self.in_dim = in_dim
+        # self.out_dim = out_dim
+        # self.conv = nn.Conv2d(self.in_c, self.out_c, (1, 1), bias = 0)
 
     def forward(self, input, gamma, beta):
-        in_mean, in_var = torch.mean(input, dim=[2, 3], keepdim=True), torch.var(input, dim=[2, 3], keepdim=True) #instance
-        out_in = (input - in_mean) /(in_var + self.eps)
-        ln_mean, ln_var = torch.mean(input, dim=[1, 2, 3], keepdim=True), torch.var(input, dim=[1, 2, 3],                                                                                    keepdim=True) #layer
-        out_ln = (input - ln_mean) /(ln_var + self.eps)
+        in_mean, in_var = torch.mean(input, dim=[2, 3], keepdim=True), torch.var(
+            input, dim=[2, 3], keepdim=True
+        )  # instance
+        out_in = (input - in_mean) / (in_var + self.eps)
+        ln_mean, ln_var = torch.mean(input, dim=[1, 2, 3], keepdim=True), torch.var(
+            input, dim=[1, 2, 3], keepdim=True
+        )  # layer
+        out_ln = (input - ln_mean) / (ln_var + self.eps)
 
-        #channel wise concat
-        out = torch.cat((out_in, out_ln),3) #find the channel dim, assume channel = dim 3
+        # channel wise concat
+        out = torch.cat(
+            (out_in, out_ln), 3
+        )  # find the channel dim, assume channel = dim 3
         in_c = out.shape[3]
         out_c = input.shape[3]
-        #1*1 convolution, from out channels back to in channels
-        m = nn.Conv2d(in_c, out_c, (1, 1), bias = 0)
+        # 1*1 convolution, from out channels back to in channels
+        m = nn.Conv2d(in_c, out_c, (1, 1), bias=0)
         out = m(out)
-        #combine with style params
+        # combine with style params
         out = out * gamma.unsqueeze(2).unsqueeze(3) + beta.unsqueeze(2).unsqueeze(3)
 
         return out
-
 
 
 class ResBlock(nn.Module):
@@ -268,8 +366,16 @@ class ResBlock(nn.Module):
         super(ResBlock, self).__init__()
 
         model = []
-        model += [Conv2dBlock(dim ,dim, 3, 1, 1, norm=norm, activation=activation, pad_type=pad_type)]
-        model += [Conv2dBlock(dim ,dim, 3, 1, 1, norm=norm, activation='none', pad_type=pad_type)]
+        model += [
+            Conv2dBlock(
+                dim, dim, 3, 1, 1, norm=norm, activation=activation, pad_type=pad_type
+            )
+        ]
+        model += [
+            Conv2dBlock(
+                dim, dim, 3, 1, 1, norm=norm, activation='none', pad_type=pad_type
+            )
+        ]
         self.model = nn.Sequential(*model)
 
     def forward(self, x):
@@ -278,9 +384,19 @@ class ResBlock(nn.Module):
         out += residual
         return out
 
+
 class Conv2dBlock(nn.Module):
-    def __init__(self, input_dim ,output_dim, kernel_size, stride,
-                 padding=0, norm='none', activation='relu', pad_type='zero'):
+    def __init__(
+        self,
+        input_dim,
+        output_dim,
+        kernel_size,
+        stride,
+        padding=0,
+        norm='none',
+        activation='relu',
+        pad_type='zero',
+    ):
         super(Conv2dBlock, self).__init__()
         self.use_bias = True
         # initialize padding
@@ -298,12 +414,14 @@ class Conv2dBlock(nn.Module):
         if norm == 'bn':
             self.norm = nn.BatchNorm2d(norm_dim)
         elif norm == 'in':
-            #self.norm = nn.InstanceNorm2d(norm_dim, track_running_stats=True)
+            # self.norm = nn.InstanceNorm2d(norm_dim, track_running_stats=True)
             self.norm = nn.InstanceNorm2d(norm_dim)
         elif norm == 'ln':
             self.norm = LayerNorm(norm_dim)
         elif norm == 'adain':
-            self.norm = AdaptiveInstanceNorm2d(norm_dim)
+            #self.norm = AdaptiveInstanceNorm2d(norm_dim)
+            self.norm = AdaPOLIN(norm_dim)
+
         elif norm == 'none' or norm == 'sn':
             self.norm = None
         else:
@@ -327,9 +445,16 @@ class Conv2dBlock(nn.Module):
 
         # initialize convolution
         if norm == 'sn':
-            self.conv = SpectralNorm(nn.Conv2d(input_dim, output_dim, kernel_size, stride, bias=self.use_bias))
+            '''self.conv = SpectralNorm(
+                nn.Conv2d(
+                    input_dim, output_dim, kernel_size, stride, bias=self.use_bias
+                )
+            )'''
+            pass
         else:
-            self.conv = nn.Conv2d(input_dim, output_dim, kernel_size, stride, bias=self.use_bias)
+            self.conv = nn.Conv2d(
+                input_dim, output_dim, kernel_size, stride, bias=self.use_bias
+            )
 
     def forward(self, x):
         x = self.conv(self.pad(x))
@@ -339,13 +464,15 @@ class Conv2dBlock(nn.Module):
             x = self.activation(x)
         return x
 
+
 class LinearBlock(nn.Module):
     def __init__(self, input_dim, output_dim, norm='none', activation='relu'):
         super(LinearBlock, self).__init__()
         use_bias = True
         # initialize fully connected layer
         if norm == 'sn':
-            self.fc = SpectralNorm(nn.Linear(input_dim, output_dim, bias=use_bias))
+            #self.fc = SpectralNorm(nn.Linear(input_dim, output_dim, bias=use_bias))
+            pass
         else:
             self.fc = nn.Linear(input_dim, output_dim, bias=use_bias)
 
@@ -384,4 +511,22 @@ class LinearBlock(nn.Module):
             out = self.norm(out)
         if self.activation:
             out = self.activation(out)
+        return out
+
+
+class Conv(nn.Module):
+    def __init__(self, input_dim, output_dim, norm='none', activation='relu'):
+        super(Conv, self).__init__()
+
+    def forward(self, x):
+        out = None
+        return out
+
+
+class LayerNorm(nn.Module):
+    def __init__(self, input_dim, output_dim, norm='none', activation='relu'):
+        super(LayerNorm, self).__init__()
+
+    def forward(self, x):
+        out = None
         return out

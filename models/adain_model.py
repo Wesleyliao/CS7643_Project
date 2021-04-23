@@ -16,7 +16,7 @@ class Generator(nn.Module):
         :param lembda_rec:
         :param lambd_fm:
         """
-        super(Net, self).__init__()
+        super(Generator, self).__init__()
         enc_layers = list(encoder.children())
         self.enc_1 = nn.Sequential(*enc_layers[:4])  # input -> relu1_1
         self.enc_2 = nn.Sequential(*enc_layers[4:11])  # relu1_1 -> relu2_1
@@ -58,6 +58,15 @@ class Generator(nn.Module):
         dl_y = None  # animeface domain
         return dl_x, dl_y
 
+    def adv_loss(self):
+        return None
+    def rec_loss(self):
+        return None
+    def fm_loss(self):
+        return None
+
+    def dfm_loss(self):
+        return None
     def forward(self, content, style, alpha=1.0):
         assert 0 <= alpha <= 1
         # style + content encode
@@ -73,10 +82,10 @@ class Generator(nn.Module):
         dl_x, dl_y = self.discriminator(input)
 
         # loss functions
-        L_adv = adv_loss()
-        L_rec = rec_loss()
-        L_fm = fm_loss()
-        L_dfm = dfm_loss()
+        L_adv = self.adv_loss()
+        L_rec = self.rec_loss()
+        L_fm = self.fm_loss()
+        L_dfm = self.dfm_loss()
         L_adv + self.lambda_rec * L_rec + self.lambda_fm * (L_fm + L_dfm)
         -L_adv
         ###end?
