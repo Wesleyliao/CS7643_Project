@@ -30,16 +30,19 @@ logging.basicConfig(
 )
 
 def load_checkpoint(fpath, generator, discriminator, optimizer_g, optimizer_d):
-    # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    checkpoint = torch.load(fpath)
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    # model is on gpu
+    checkpoint = torch.load(fpath, map_location=device)
     last_finished_epoch = checkpoint['epoch']
     generator.load_state_dict(checkpoint['generator'])
     if 'discriminator' in checkpoint and discriminator:
         discriminator.load_state_dict(checkpoint['discriminator'])
-    # if 'optimizer_g' in checkpoint and optimizer_g:
-    #     optimizer_g.load_state_dict(checkpoint['optimizer_g'])
-    # if 'optimizer_d' in checkpoint and optimizer_d:
-    #     optimizer_d.load_state_dict(checkpoint['optimizer_d'])
+    # optimizer is always cpu
+    checkpoint = torch.load(fpath, map_location=torch.device('cpu'))
+    if 'optimizer_g' in checkpoint and optimizer_g:
+        optimizer_g.load_state_dict(checkpoint['optimizer_g'])
+    if 'optimizer_d' in checkpoint and optimizer_d:
+        optimizer_d.load_state_dict(checkpoint['optimizer_d'])
     start_epoch = last_finished_epoch + 1
     return start_epoch
 
@@ -80,15 +83,15 @@ def train(real_img_loader, anime_img_loader, eval_img_loader):
     # fpath
     output_dir = Path(CONFIG['output_path'])
     checkpoint_dir = Path(CONFIG['checkpoint_path'])
-    export_prefix = CONFIG['export_prefix']
+    model_name = CONFIG['model_name']
     load_checkpoint_fpath = Path(CONFIG['load_checkpoint_fpath']) if CONFIG['load_checkpoint_fpath'] else None
     load_history = CONFIG['load_history']
 
     # model export fpath
-    pretrain_hist_fpath = output_dir / f'{export_prefix}_pretrain_hist.pkl'
-    train_hist_fpath = output_dir / f'{export_prefix}_train_hist.pkl'
-    checkpoint_fpath = checkpoint_dir / f'{export_prefix}.pt'
-    reconstruction_checkpoint_fpath = checkpoint_dir / f'{export_prefix}_recon.pt'
+    pretrain_hist_fpath = output_dir / f'{model_name}_pretrain_hist.pkl'
+    train_hist_fpath = output_dir / f'{model_name}_train_hist.pkl'
+    checkpoint_fpath = checkpoint_dir / f'{model_name}.pt'
+    reconstruction_checkpoint_fpath = checkpoint_dir / f'{model_name}_recon.pt'
     # model params
     generator = Generator()
     discriminator = Discriminator(num_discriminator_layers=num_discriminator_layers, spectral_norm=spectral_norm)
@@ -98,7 +101,7 @@ def train(real_img_loader, anime_img_loader, eval_img_loader):
     if load_checkpoint_fpath and load_checkpoint_fpath.exists():
         start_epoch = load_checkpoint(load_checkpoint_fpath, generator, discriminator, optimizer_g, optimizer_d)
         log.info(f'Loaded from checkpoint {load_checkpoint_fpath}')
-        log.info(f'Continuing with starting epoch: {start_epoch}')
+        log.info(f'Continuing with starting epoch: {start_epoch + 1}')
     else:
         start_epoch = 0
     # training progress trackers
@@ -124,7 +127,7 @@ def train(real_img_loader, anime_img_loader, eval_img_loader):
     eval_batch = eval_batch.to(device)
     # output image grid
     #TODO: load existing image into image grid so we can keep adding to it
-    img_grid = ImageGrid(output_dir / 'val' / f'{export_prefix}_val.png')
+    img_grid = ImageGrid(output_dir / 'val' / f'{model_name}_val.png')
     img_grid.add_row(eval_batch, 'Orig')
     # epochs
     total_epochs = start_epoch + train_epochs
@@ -172,7 +175,8 @@ def train(real_img_loader, anime_img_loader, eval_img_loader):
                 recon_loss.append(reconstruction_loss.item())
             else:
                 # animeGAN training
-                if epoch == init_epoch:
+                # TODO: must chnage if using scheduler
+                if epoch >= init_epoch:
                     optimizer_g.param_groups[0]['lr'] = lr_g
 
                 generated_images = generator(real_batch)
@@ -280,7 +284,7 @@ def test(eval_img_loader):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     # fpath
     output_dir = Path(CONFIG['output_path'])
-    export_prefix = CONFIG['export_prefix']
+    model_name = CONFIG['model_name']
     load_checkpoint_fpath = Path(CONFIG['load_checkpoint_fpath']) if CONFIG['load_checkpoint_fpath'] else None
 
     # model params
@@ -296,7 +300,7 @@ def test(eval_img_loader):
     eval_batch = next(iter(eval_img_loader))
     eval_batch = eval_batch.to(device)
     # output image grid
-    img_grid = ImageGrid(output_dir / 'val' / f'{export_prefix}_val.png')
+    img_grid = ImageGrid(output_dir / 'val' / f'{model_name}_val.png')
     img_grid.add_row(eval_batch, 'Orig')
 
     #####################
