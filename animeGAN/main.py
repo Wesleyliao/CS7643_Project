@@ -38,11 +38,11 @@ def load_checkpoint(fpath, generator, discriminator, optimizer_g, optimizer_d):
     if 'discriminator' in checkpoint and discriminator:
         discriminator.load_state_dict(checkpoint['discriminator'])
     # optimizer is always cpu
-    checkpoint = torch.load(fpath, map_location=torch.device('cpu'))
-    if 'optimizer_g' in checkpoint and optimizer_g:
-        optimizer_g.load_state_dict(checkpoint['optimizer_g'])
-    if 'optimizer_d' in checkpoint and optimizer_d:
-        optimizer_d.load_state_dict(checkpoint['optimizer_d'])
+    # checkpoint = torch.load(fpath, map_location=torch.device('cpu'))
+    # if 'optimizer_g' in checkpoint and optimizer_g:
+    #     optimizer_g.load_state_dict(checkpoint['optimizer_g'])
+    # if 'optimizer_d' in checkpoint and optimizer_d:
+    #     optimizer_d.load_state_dict(checkpoint['optimizer_d'])
     start_epoch = last_finished_epoch + 1
     return start_epoch
 
@@ -97,6 +97,7 @@ def train(real_img_loader, anime_img_loader, eval_img_loader):
     discriminator = Discriminator(num_discriminator_layers=num_discriminator_layers, spectral_norm=spectral_norm)
     vgg = VGG19(init_weights=vgg_pretrain_weights, feature_mode=True)
     optimizer_g = torch.optim.Adam(generator.parameters(), lr=lr_g_init, betas=(0.5, 0.999))
+    optimizer_g_init = torch.optim.Adam(generator.parameters(), lr=lr_g, betas=(0.5, 0.999))
     optimizer_d = torch.optim.Adam(discriminator.parameters(), lr=lr_d, betas=(0.5, 0.999))
     if load_checkpoint_fpath and load_checkpoint_fpath.exists():
         start_epoch = load_checkpoint(load_checkpoint_fpath, generator, discriminator, optimizer_g, optimizer_d)
@@ -164,20 +165,20 @@ def train(real_img_loader, anime_img_loader, eval_img_loader):
 
             if pretrain:
                 # pre train generator using just content loss
-                optimizer_g.zero_grad()
+                optimizer_g_init.zero_grad()
 
                 generated_images = generator(real_batch)
                 reconstruction_loss = content_loss(vgg, generated_images, real_batch)
 
                 reconstruction_loss.backward()
-                optimizer_g.step()
+                optimizer_g_init.step()
 
                 recon_loss.append(reconstruction_loss.item())
             else:
                 # animeGAN training
                 # TODO: must chnage if using scheduler
-                if epoch >= init_epoch:
-                    optimizer_g.param_groups[0]['lr'] = lr_g
+                # if epoch >= init_epoch:
+                #     optimizer_g.param_groups[0]['lr'] = lr_g
 
                 generated_images = generator(real_batch)
 
