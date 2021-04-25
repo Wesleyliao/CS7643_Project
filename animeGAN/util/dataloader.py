@@ -20,13 +20,14 @@ TODO:
 """
 
 class AnimeGanDataset(Dataset):
-    def __init__(self, image_folder, anime_folder, required_num_images=None, transform=None):
+    def __init__(self, image_folder, anime_folder, required_num_images=None, generate_smoothed_grayscale=False,
+                 transform=None):
         self.image_folder = Path(image_folder)
         self.anime_folder = anime_folder
         self.transform = transform
         self.img_fpaths = [f for f in self.image_folder.iterdir()]
         self.num_images = len(self.img_fpaths)
-        self.generate_smoothed_grayscale = False
+        self.generate_smoothed_grayscale = generate_smoothed_grayscale
 
         # create kernels for smoothing transform
         kernel_size = 5
@@ -122,7 +123,8 @@ class AnimeGanDataset(Dataset):
         return image
 
 
-def get_dataloader(path: str, anime_folder: bool, batch_size: int, input_size: int, required_num_images=None, shuffle=True) -> DataLoader:
+def get_dataloader(path: str, anime_folder: bool, batch_size: int, input_size: int, required_num_images=None,
+                   generate_smoothed_grayscale=False, shuffle=True) -> DataLoader:
 
     # Transform train data with augmentation
     transform = transforms.Compose(
@@ -136,7 +138,8 @@ def get_dataloader(path: str, anime_folder: bool, batch_size: int, input_size: i
     )
 
     # Get dataset
-    dataset = AnimeGanDataset(path, anime_folder=anime_folder, required_num_images=required_num_images, transform=transform)
+    dataset = AnimeGanDataset(path, anime_folder=anime_folder, required_num_images=required_num_images,
+                              generate_smoothed_grayscale=generate_smoothed_grayscale, transform=transform)
 
     # Train loader
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)

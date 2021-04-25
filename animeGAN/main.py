@@ -61,12 +61,11 @@ def train(real_img_loader, anime_img_loader, eval_img_loader):
     lr_g = CONFIG['lr_generator']
     lr_d = CONFIG['lr_discriminator']
     # weights
-    g_adv_weight = CONFIG['generator_adversarial_weight']
+    adv_weight = CONFIG['adversarial_weight']
     g_content_weight = CONFIG['generator_content_weight']
     g_style_weight = CONFIG['generator_style_weight']
     g_color_weight = CONFIG['generator_color_weight']
     g_tv_weight = CONFIG['generator_tv_weight']
-    d_adv_weight = CONFIG['discriminator_adversarial_weight']
     d_real_weight = CONFIG['discriminator_is_anime_weight']
     d_fake_weight = CONFIG['discriminator_is_not_anime_weight']
     d_gray_weight = CONFIG['discriminator_gray_weight']
@@ -78,6 +77,7 @@ def train(real_img_loader, anime_img_loader, eval_img_loader):
     # discriminator
     spectral_norm = CONFIG['spectral_norm']
     num_discriminator_layers = CONFIG['num_discriminator_layers']
+    disc_train_freq = CONFIG['discriminator_train_freq']
     # cuda
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     # fpath
@@ -135,9 +135,11 @@ def train(real_img_loader, anime_img_loader, eval_img_loader):
     # print model architecture
     # log.info(f'Generator Architecture:\n{generator}')
     # log.info(f'Discriminator Architecture:\n{discriminator}')
-
+    i = 0
     for epoch in get_pbar(np.arange(start_epoch, total_epochs), desc='Epoch Progress'):
         pretrain = epoch < init_epoch
+        pretrain_epoch = epoch + 1
+        train_epoch = epoch - init_epoch + 1
 
         #####################
         # Train
@@ -175,54 +177,51 @@ def train(real_img_loader, anime_img_loader, eval_img_loader):
 
                 recon_loss.append(reconstruction_loss.item())
             else:
-                # animeGAN training
-                # TODO: must chnage if using scheduler
-                # if epoch >= init_epoch:
-                #     optimizer_g.param_groups[0]['lr'] = lr_g
 
-                generated_images = generator(real_batch)
 
-                """
-                animeGAN paper -> alternate discriminator
-                GAN paper -> run discriminator for k batches before generating once
-                """
-                # train discriminator
-                optimizer_d.zero_grad()
+                # train discriminator every N training epochs
+                if i % disc_train_freq == 0:
+                    optimizer_d.zero_grad()
 
-                d_generated_images = discriminator(generated_images)
-                d_anime_images = discriminator(anime_batch)
-                d_anime_gray_images = discriminator(anime_gray_batch)
-                d_anime_smooth_gray_images = discriminator(anime_smooth_gray_batch)
+                    generated_images = generator(real_batch)
 
-                d_loss = discriminator_loss(d_anime_images, d_generated_images, d_anime_gray_images,
-                                            d_anime_smooth_gray_images, d_real_weight, d_fake_weight, d_gray_weight,
-                                            d_edge_weight, device, gan_loss_type) * d_adv_weight
+                    d_generated_images = discriminator(generated_images)
+                    d_anime_images = discriminator(anime_batch)
+                    d_anime_gray_images = discriminator(anime_gray_batch)
+                    d_anime_smooth_gray_images = discriminator(anime_smooth_gray_batch)
 
-                d_loss.backward()
-                optimizer_d.step()
+                    d_loss = discriminator_loss(d_anime_images, d_generated_images, d_anime_gray_images,
+                                                d_anime_smooth_gray_images, d_real_weight, d_fake_weight, d_gray_weight,
+                                                d_edge_weight, device, gan_loss_type) * adv_weight
+
+                    d_loss.backward()
+                    optimizer_d.step()
+
+                    disc_loss.append(d_loss.item())
 
                 # train generator
                 optimizer_g.zero_grad()
 
-                generated_images = generator(real_batch)  # don't need to generate again?
+                generated_images = generator(real_batch)
+
+                # generated_images = generator(real_batch)  # don't need to generate again?
                 d_generated_images = discriminator(generated_images)
 
-                g_loss = generator_loss(d_generated_images, device, gan_loss_type) * g_adv_weight + \
+                g_loss = generator_loss(d_generated_images, device, gan_loss_type) * adv_weight + \
                          neural_transfer_loss(generated_images, real_batch, anime_gray_batch, g_content_weight,
                                               g_style_weight, g_color_weight, g_tv_weight, vgg, device)
 
                 g_loss.backward()
                 optimizer_g.step()
 
-                disc_loss.append(d_loss.item())
                 gen_loss.append(g_loss.item())
 
+            i += 1
             batch_time.append(time.time() - batch_start_time)
 
         batch_time = np.mean(batch_time)
         train_time = time.time() - epoch_start_time
         if pretrain:
-            pretrain_epoch = epoch + 1
             recon_loss = np.mean(recon_loss)
 
             pretrain_hist['epoch'].append(pretrain_epoch)
@@ -241,7 +240,6 @@ def train(real_img_loader, anime_img_loader, eval_img_loader):
                               optimizer_d=optimizer_d.state_dict(), config=CONFIG)
             torch.save(checkpoint, reconstruction_checkpoint_fpath)
         else:
-            train_epoch = epoch - init_epoch + 1
             disc_loss = np.mean(disc_loss)
             gen_loss = np.mean(gen_loss)
 
@@ -320,7 +318,7 @@ def test(eval_img_loader):
 @click.command()
 @click.option('--mode', type=click.Choice(['train', 'test'], case_sensitive=False), default='train', help='Train or test mode')
 @click.option('--debug-mode', is_flag=True, help='Specify if running in debug mode')
-@click.option('--config-path', type=str, default='./animeGAN/config/default.yml', help='Path to config file')
+@click.option('--config-path', type=str, default='./animeGAN/config/train.yml', help='Path to config file')
 def main_cli(mode, debug_mode, config_path):
     main(mode, debug_mode, config_path)
 
@@ -336,14 +334,13 @@ def main(mode, debug_mode, config_path):
         CONFIG = yaml.safe_load(stream)
         # override CONFIG with debug values for faster training and debugging
         if debug_mode:
-            CONFIG['epochs'] = 2
+            CONFIG['train_epochs'] = 2
             CONFIG['batch_size'] = 4
             CONFIG['init_epoch'] = 1
             CONFIG['eval_freq'] = 1
             required_num_images = 4
         else:
             required_num_images = None
-
 
     # print(f':::Running with config::: \n{yaml.dump(CONFIG, default_flow_style=False)}\n')
 
@@ -355,7 +352,9 @@ def main(mode, debug_mode, config_path):
 
     # Get dataloaders
     real_img_loader = get_dataloader(CONFIG['real_path'], False, CONFIG['batch_size'], CONFIG['input_size'], required_num_images=required_num_images)
-    anime_img_loader = get_dataloader(CONFIG['anime_style_path'], True, CONFIG['batch_size'], CONFIG['input_size'], required_num_images=len(real_img_loader.dataset))
+    anime_img_loader = get_dataloader(CONFIG['anime_style_path'], True, CONFIG['batch_size'], CONFIG['input_size'],
+                                      required_num_images=len(real_img_loader.dataset),
+                                      generate_smoothed_grayscale=CONFIG['generate_smoothed_grayscale'])
     eval_img_loader = get_dataloader(CONFIG['eval_path'], False, 8, CONFIG['input_size'], shuffle=False)
 
     # Test dataloader

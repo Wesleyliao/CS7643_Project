@@ -1,10 +1,11 @@
 import torch
 import torch.nn as nn
 
-l1_loss = nn.L1Loss()
-l2_loss = nn.MSELoss()
-huber_loss = nn.SmoothL1Loss()
-bce_loss = nn.BCELoss()
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+l1_loss = nn.L1Loss().to(device)
+l2_loss = nn.MSELoss().to(device)
+huber_loss = nn.SmoothL1Loss().to(device)
+bce_loss = nn.BCEWithLogitsLoss().to(device)
 
 def content_loss(vgg, generated_images, real_images):
     gen_features = vgg(generated_images)
