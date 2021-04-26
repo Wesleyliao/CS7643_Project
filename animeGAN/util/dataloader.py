@@ -28,6 +28,7 @@ class AnimeGanDataset(Dataset):
         self.img_fpaths = [f for f in self.image_folder.iterdir()]
         self.num_images = len(self.img_fpaths)
         self.generate_smoothed_grayscale = generate_smoothed_grayscale
+        self.input_size = self.get_input_img_size()
 
         # create kernels for smoothing transform
         kernel_size = 5
@@ -50,6 +51,11 @@ class AnimeGanDataset(Dataset):
     def __len__(self):
         return len(self.img_fpaths)
 
+    def get_input_img_size(self):
+        for t in self.transform.transforms:
+            if isinstance(t, transforms.Resize):
+                return t.size[0]
+
     def load_image_as_rgb(self, fpath: str) -> Image:
         img_bgr = cv2.imread(fpath)
         img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
@@ -63,23 +69,36 @@ class AnimeGanDataset(Dataset):
         img = Image.fromarray(img_gray)
         return img
 
+    def resize_rgb(self, img):
+        new_img = []
+        for channel in range(img.shape[2]):
+            new_img.append(cv2.resize(img[:,:,channel], (self.input_size, self.input_size), cv2.INTER_AREA))
+        new_img = np.array(new_img).astype('uint8')
+        new_img = np.transpose(new_img, (1, 2, 0))
+        return new_img
+
     def _load_image_as_smoothed_gray(self, fpath: str) -> Image:
         img_bgr = cv2.imread(fpath)
+        img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
         img_gray = cv2.imread(fpath, cv2.IMREAD_GRAYSCALE)
+        # resize img now so img is smaller and smoothing is faster
+        img_rgb = self.resize_rgb(img_rgb)
+        img_gray = cv2.resize(img_gray, (self.input_size, self.input_size), cv2.INTER_AREA)
+
         kernel_size = self.smooth_params['kernel_size']
         kernel = self.smooth_params['kernel']
         gaussian_kernel = self.smooth_params['gaussian_kernel']
 
-        img_bgr_pad = np.pad(img_bgr, ((2, 2), (2, 2), (0, 0)), mode='reflect')
+        img_rgb_pad = np.pad(img_rgb, ((2, 2), (2, 2), (0, 0)), mode='reflect')
         edges = cv2.Canny(img_gray, 100, 200)
         dilation = cv2.dilate(edges, kernel)
 
-        gauss_img = np.copy(img_bgr)
+        gauss_img = np.copy(img_rgb)
         idx = np.where(dilation != 0)
         for i in range(np.sum(dilation != 0)):
-            gauss_img[idx[0][i], idx[1][i], 0] = np.sum(np.multiply(img_bgr_pad[idx[0][i]:idx[0][i] + kernel_size, idx[1][i]:idx[1][i] + kernel_size, 0], gaussian_kernel))
-            gauss_img[idx[0][i], idx[1][i], 1] = np.sum(np.multiply(img_bgr_pad[idx[0][i]:idx[0][i] + kernel_size, idx[1][i]:idx[1][i] + kernel_size, 1], gaussian_kernel))
-            gauss_img[idx[0][i], idx[1][i], 2] = np.sum(np.multiply(img_bgr_pad[idx[0][i]:idx[0][i] + kernel_size, idx[1][i]:idx[1][i] + kernel_size, 2], gaussian_kernel))
+            gauss_img[idx[0][i], idx[1][i], 0] = np.sum(np.multiply(img_rgb_pad[idx[0][i]:idx[0][i] + kernel_size, idx[1][i]:idx[1][i] + kernel_size, 0], gaussian_kernel))
+            gauss_img[idx[0][i], idx[1][i], 1] = np.sum(np.multiply(img_rgb_pad[idx[0][i]:idx[0][i] + kernel_size, idx[1][i]:idx[1][i] + kernel_size, 1], gaussian_kernel))
+            gauss_img[idx[0][i], idx[1][i], 2] = np.sum(np.multiply(img_rgb_pad[idx[0][i]:idx[0][i] + kernel_size, idx[1][i]:idx[1][i] + kernel_size, 2], gaussian_kernel))
 
         img = Image.fromarray(gauss_img)
         return img

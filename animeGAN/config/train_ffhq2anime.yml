@@ -1,6 +1,6 @@
 # Data paths
 real_path: "./animeGAN/data/ffhq2anime/trainB"
-anime_style_path: "./animeGAN/data/ffhq2anime/trainA/style"
+anime_style_path: "./animeGAN/data/ffhq2anime/trainA"
 eval_path: "./data/ffhq_test/img"
 generate_smoothed_grayscale: True
 
