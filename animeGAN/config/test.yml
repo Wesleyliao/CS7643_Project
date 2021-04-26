@@ -1,0 +1,44 @@
+# Data paths
+real_path: "./animeGAN/data/real/"
+anime_style_path: "./animeGAN/data/Shinkai/style"
+#eval_path: "./data/ffhq_test/img"
+eval_path: "./animeGAN/data/val/imgs"
+generate_smoothed_grayscale: False
+
+# Other paths
+checkpoint_path: "./animeGAN/checkpoints"
+output_path: "./animeGAN/outputs"
+load_checkpoint_fpath: "./animeGAN/checkpoints/adv_20_edge_2.pt"
+load_history: False
+
+# Model settings
+model_name: "test"
+input_size: 256
+eval_freq: 2
+gan_loss_type: "gan"
+# Discriminator
+num_discriminator_layers: 3
+spectral_norm: True
+discriminator_train_freq: 2
+
+# Hyperparameters
+lr_generator_init: 0.0002
+lr_generator: 0.00002
+lr_discriminator: 0.00004
+batch_size: 12
+train_epochs: 101
+init_epoch: 10
+
+# weights
+adversarial_weight: 20
+generator_content_weight: 1.2
+generator_style_weight: 3
+generator_color_weight: 10
+generator_tv_weight: 1
+discriminator_is_anime_weight: 1.7
+discriminator_is_not_anime_weight: 1.7
+discriminator_gray_weight: 1
+discriminator_edge_weight: 2
+
+# VGG
+vgg19_pretrained_weights: "./animeGAN/checkpoints/vgg19-dcbb9e9d.pth"
