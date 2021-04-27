@@ -7,11 +7,11 @@ generate_smoothed_grayscale: True
 # Other paths
 checkpoint_path: "./animeGAN/checkpoints"
 output_path: "./animeGAN/outputs"
-load_checkpoint_fpath: "./animeGAN/checkpoints/reconstruction.pt"
+load_checkpoint_fpath: "./animeGAN/checkpoints/ffhq2anime_adv_20_edge_2.pt"
 load_history: False
 
 # Model settings
-model_name: "ffhq2anime_adv_20_edge_2"
+model_name: "ffhq2anime_adv_300_edge_2"
 input_size: 256
 eval_freq: 1
 gan_loss_type: "gan"
