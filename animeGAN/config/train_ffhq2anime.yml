@@ -29,7 +29,7 @@ train_epochs: 101
 init_epoch: 10
 
 # weights
-adversarial_weight: 20
+adversarial_weight: 300
 generator_content_weight: 1.2
 generator_style_weight: 3
 generator_color_weight: 10

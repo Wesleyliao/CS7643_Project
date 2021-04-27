@@ -177,8 +177,6 @@ def train(real_img_loader, anime_img_loader, eval_img_loader):
 
                 recon_loss.append(reconstruction_loss.item())
             else:
-
-
                 # train discriminator every N training epochs
                 if i % disc_train_freq == 0:
                     optimizer_d.zero_grad()
@@ -204,7 +202,6 @@ def train(real_img_loader, anime_img_loader, eval_img_loader):
 
                 generated_images = generator(real_batch)
 
-                # generated_images = generator(real_batch)  # don't need to generate again?
                 d_generated_images = discriminator(generated_images)
 
                 g_loss = generator_loss(d_generated_images, device, gan_loss_type) * adv_weight + \
@@ -218,6 +215,12 @@ def train(real_img_loader, anime_img_loader, eval_img_loader):
 
             i += 1
             batch_time.append(time.time() - batch_start_time)
+
+            # save checkpoint after every 10 iterations
+            if i % 10:
+                checkpoint = dict(epoch=epoch, generator=generator.state_dict(), discriminator=discriminator.state_dict(),
+                                  optimizer_g=optimizer_g.state_dict(), optimizer_d=optimizer_d.state_dict(), config=CONFIG)
+                torch.save(checkpoint, checkpoint_fpath)
 
         batch_time = np.mean(batch_time)
         train_time = time.time() - epoch_start_time
@@ -254,11 +257,6 @@ def train(real_img_loader, anime_img_loader, eval_img_loader):
             # save train hist to file
             with open(train_hist_fpath, 'wb') as f:
                 pickle.dump(train_hist, f)
-
-        # save checkpoint after every epoch
-        checkpoint = dict(epoch=epoch, generator=generator.state_dict(), discriminator=discriminator.state_dict(),
-                          optimizer_g=optimizer_g.state_dict(), optimizer_d=optimizer_d.state_dict(), config=CONFIG)
-        torch.save(checkpoint, checkpoint_fpath)
 
         #####################
         # Eval
