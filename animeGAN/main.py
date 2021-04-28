@@ -190,7 +190,7 @@ def train(real_img_loader, anime_img_loader, eval_img_loader):
 
                     d_loss = discriminator_loss(d_anime_images, d_generated_images, d_anime_gray_images,
                                                 d_anime_smooth_gray_images, d_real_weight, d_fake_weight, d_gray_weight,
-                                                d_edge_weight, device, gan_loss_type) * adv_weight
+                                                d_edge_weight, gan_loss_type) * adv_weight
 
                     d_loss.backward()
                     optimizer_d.step()
@@ -204,9 +204,11 @@ def train(real_img_loader, anime_img_loader, eval_img_loader):
 
                 d_generated_images = discriminator(generated_images)
 
-                g_loss = generator_loss(d_generated_images, device, gan_loss_type) * adv_weight + \
-                         neural_transfer_loss(generated_images, real_batch, anime_gray_batch, g_content_weight,
-                                              g_style_weight, g_color_weight, g_tv_weight, vgg, device)
+                g_loss = generator_loss(d_generated_images, gan_loss_type) * adv_weight + \
+                         content_loss(vgg, generated_images, real_batch) * g_content_weight + \
+                         style_loss(vgg, generated_images, anime_gray_batch) * g_style_weight + \
+                         color_loss(generated_images, real_batch) * g_color_weight + \
+                         total_variation_loss(generated_images) * g_tv_weight
 
                 g_loss.backward()
                 optimizer_g.step()

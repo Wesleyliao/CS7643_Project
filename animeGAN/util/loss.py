@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+global device
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 l1_loss = nn.L1Loss().to(device)
 l2_loss = nn.MSELoss().to(device)
@@ -27,7 +28,6 @@ def style_loss(vgg, generated_images, anime_gray_images):
     anime_gray_gram = gram_matrix(anime_gray_features)
     return l1_loss(gen_gram, anime_gray_gram)
 
-
 def color_loss(generated_images, real_images):
     def rgb_to_yuv(image: torch.Tensor) -> torch.Tensor:
         # RGB image to YUV
@@ -50,7 +50,7 @@ def color_loss(generated_images, real_images):
            huber_loss(gen[:, 2, :, :], real[:, 2, :, :])
     return loss
 
-def total_variation_loss(img, device):
+def total_variation_loss(img):
     dh = img[:, :, 1:, :] - img[:, :, :-1, :]
     dw = img[:, :, :, 1:] - img[:, :, :, :-1]
 
@@ -60,7 +60,7 @@ def total_variation_loss(img, device):
 
 def discriminator_loss(d_anime_images, d_generated_images, d_anime_gray_images, d_anime_smooth_gray_images,
                        d_real_weight, d_fake_weight, d_gray_weight, d_edge_weight,
-                       device, gan_loss_type):
+                       gan_loss_type):
     # real if image is anime else fake (i.e. real images are fake)
     real = torch.ones(d_generated_images.size()).to(device)
     fake = torch.zeros(d_generated_images.size()).to(device)
@@ -78,21 +78,12 @@ def discriminator_loss(d_anime_images, d_generated_images, d_anime_gray_images, 
 
     return loss
 
-def generator_loss(d_generated_images, device, gan_loss_type):
+def generator_loss(d_generated_images, gan_loss_type):
     real = torch.ones(d_generated_images.size()).to(device)
 
     if gan_loss_type == 'gan':
         loss = bce_loss(d_generated_images, real)
     elif gan_loss_type == 'lsgan':
         loss = l2_loss(d_generated_images, real)
-
-    return loss
-
-def neural_transfer_loss(generated_images, real_batch, anime_gray_batch, g_content_weight, g_style_weight,
-                         g_color_weight, g_tv_weight, vgg, device):
-    loss = content_loss(vgg, generated_images, real_batch) * g_content_weight + \
-           style_loss(vgg, generated_images, anime_gray_batch) * g_style_weight + \
-           color_loss(generated_images, real_batch) * g_color_weight + \
-           total_variation_loss(generated_images, device) * g_tv_weight
 
     return loss

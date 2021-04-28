@@ -54,7 +54,7 @@ class Discriminator(nn.Module):
                 nn.LeakyReLU(0.2, True),
 
                 Conv2D(out_ch * 2, out_ch * 4, 3, 1, 1, bias=False, spectral_norm=spectral_norm),
-                nn.InstanceNorm2d(out_ch * 4),
+                nn.GroupNorm(num_groups=1, num_channels=out_ch * 4, affine=True),
                 nn.LeakyReLU(0.2, True),
             ]
             in_ch = out_ch * 4
@@ -63,11 +63,10 @@ class Discriminator(nn.Module):
         # Block C
         layers += [
             Conv2D(in_ch, out_ch * 2, 3, 1, 1, bias=False, spectral_norm=spectral_norm),
-            nn.InstanceNorm2d(out_ch * 2),
+            nn.GroupNorm(num_groups=1, num_channels=out_ch * 2, affine=True),
             nn.LeakyReLU(0.2, True),
 
             Conv2D(out_ch * 2, out_channel, 3, 1, 1, bias=False, spectral_norm=spectral_norm),
-            nn.Sigmoid()
         ]
         self.layers = nn.Sequential(*layers)
 
