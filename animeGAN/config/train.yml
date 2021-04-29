@@ -8,7 +8,8 @@ generate_smoothed_grayscale: False
 # Other paths
 checkpoint_path: "./animeGAN/checkpoints"
 output_path: "./animeGAN/outputs"
-load_checkpoint_fpath: "./animeGAN/checkpoints/reconstruction.pt"
+#load_checkpoint_fpath: "./animeGAN/checkpoints/reconstruction.pt"
+load_checkpoint_fpath: ""
 load_history: False
 
 # Model settings
@@ -17,7 +18,7 @@ input_size: 256
 eval_freq: 2
 gan_loss_type: "lsgan"
 # Discriminator
-num_discriminator_layers: 2
+num_discriminator_layers: 3
 spectral_norm: True
 discriminator_train_freq: 2
 

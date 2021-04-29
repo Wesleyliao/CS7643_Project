@@ -218,8 +218,8 @@ def train(real_img_loader, anime_img_loader, eval_img_loader):
             i += 1
             batch_time.append(time.time() - batch_start_time)
 
-            # save checkpoint after every 10 iterations
-            if i % 10:
+            # save checkpoint after every 50 iterations
+            if i % 50:
                 checkpoint = dict(epoch=epoch, generator=generator.state_dict(), discriminator=discriminator.state_dict(),
                                   optimizer_g=optimizer_g.state_dict(), optimizer_d=optimizer_d.state_dict(), config=CONFIG)
                 torch.save(checkpoint, checkpoint_fpath)
