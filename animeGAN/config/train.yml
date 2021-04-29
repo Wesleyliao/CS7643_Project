@@ -9,7 +9,7 @@ generate_smoothed_grayscale: False
 checkpoint_path: "./animeGAN/checkpoints"
 output_path: "./animeGAN/outputs"
 #load_checkpoint_fpath: "./animeGAN/checkpoints/reconstruction.pt"
-load_checkpoint_fpath: ""
+load_checkpoint_fpath: "./animeGAN/checkpoints/paper_params_recon.pt"
 load_history: False
 
 # Model settings

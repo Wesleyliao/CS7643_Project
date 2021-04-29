@@ -135,7 +135,7 @@ def train(real_img_loader, anime_img_loader, eval_img_loader):
     # print model architecture
     # log.info(f'Generator Architecture:\n{generator}')
     # log.info(f'Discriminator Architecture:\n{discriminator}')
-    i = 0
+    iter_num = 0
     for epoch in get_pbar(np.arange(start_epoch, total_epochs), desc='Epoch Progress'):
         pretrain = epoch < init_epoch
         pretrain_epoch = epoch + 1
@@ -178,7 +178,7 @@ def train(real_img_loader, anime_img_loader, eval_img_loader):
                 recon_loss.append(reconstruction_loss.item())
             else:
                 # train discriminator every N training epochs
-                if i % disc_train_freq == 0:
+                if iter_num % disc_train_freq == 0:
                     optimizer_d.zero_grad()
 
                     generated_images = generator(real_batch)
@@ -215,14 +215,15 @@ def train(real_img_loader, anime_img_loader, eval_img_loader):
 
                 gen_loss.append(g_loss.item())
 
-            i += 1
-            batch_time.append(time.time() - batch_start_time)
-
-            # save checkpoint after every 50 iterations
-            if i % 50:
+            # save checkpoint after every 10 iterations
+            if iter_num % 10 == 0:
                 checkpoint = dict(epoch=epoch, generator=generator.state_dict(), discriminator=discriminator.state_dict(),
-                                  optimizer_g=optimizer_g.state_dict(), optimizer_d=optimizer_d.state_dict(), config=CONFIG)
+                                  optimizer_g=optimizer_g.state_dict(), optimizer_d=optimizer_d.state_dict(),
+                                  config=CONFIG, iter_num=iter_num)
                 torch.save(checkpoint, checkpoint_fpath)
+
+            iter_num += 1
+            batch_time.append(time.time() - batch_start_time)
 
         batch_time = np.mean(batch_time)
         train_time = time.time() - epoch_start_time
@@ -259,6 +260,12 @@ def train(real_img_loader, anime_img_loader, eval_img_loader):
             # save train hist to file
             with open(train_hist_fpath, 'wb') as f:
                 pickle.dump(train_hist, f)
+
+            # save at the end of each epoch
+            checkpoint = dict(epoch=epoch, generator=generator.state_dict(), discriminator=discriminator.state_dict(),
+                              optimizer_g=optimizer_g.state_dict(), optimizer_d=optimizer_d.state_dict(), config=CONFIG,
+                              iter_num=iter_num)
+            torch.save(checkpoint, checkpoint_fpath)
 
         #####################
         # Eval
