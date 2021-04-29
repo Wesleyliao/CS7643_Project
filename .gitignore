@@ -138,12 +138,19 @@ dmypy.json
 cython_debug/
 
 .DS_Store
+# data
 data/*
+*/data/*
 !data/*.bat
 !data/*.sh
-!/data/*test
+# ide
 .vscode
-
+.idea/*
+# anime gan related githubs by other ppl
+AnimeGANv1/*
+AnimeGANv2/*
+CartoonGan-tensorflow/*
+CartoonGan-pytorch/*
 # Model checkpoints
 *.pth
 *.pt
