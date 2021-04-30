@@ -96,8 +96,8 @@ def train(real_img_loader, anime_img_loader, eval_img_loader):
     generator = Generator()
     discriminator = Discriminator(num_discriminator_layers=num_discriminator_layers, spectral_norm=spectral_norm)
     vgg = VGG19(init_weights=vgg_pretrain_weights, feature_mode=True)
-    optimizer_g = torch.optim.Adam(generator.parameters(), lr=lr_g_init, betas=(0.5, 0.999))
-    optimizer_g_init = torch.optim.Adam(generator.parameters(), lr=lr_g, betas=(0.5, 0.999))
+    optimizer_g = torch.optim.Adam(generator.parameters(), lr=lr_g, betas=(0.5, 0.999))
+    optimizer_g_init = torch.optim.Adam(generator.parameters(), lr=lr_g_init, betas=(0.5, 0.999))
     optimizer_d = torch.optim.Adam(discriminator.parameters(), lr=lr_d, betas=(0.5, 0.999))
     if load_checkpoint_fpath and load_checkpoint_fpath.exists():
         start_epoch = load_checkpoint(load_checkpoint_fpath, generator, discriminator, optimizer_g, optimizer_d)
