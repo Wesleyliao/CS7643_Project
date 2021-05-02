@@ -2,16 +2,16 @@
 real_path: "./animeGAN/data/ffhq2anime/trainB"
 anime_style_path: "./animeGAN/data/ffhq2anime/trainA/style"
 eval_path: "./data/ffhq_test/img"
-generate_smoothed_grayscale: False
+generate_smoothed_grayscale: True
 
 # Other paths
 checkpoint_path: "./animeGAN/checkpoints"
 output_path: "./animeGAN/outputs"
-load_checkpoint_fpath: "./animeGAN/checkpoints/ffhq2anime_adv_300_edge_2.pt"
-load_history: True
+load_checkpoint_fpath: "./animeGAN/checkpoints/paper_params_2_recon.pt"
+load_history: False
 
 # Model settings
-model_name: "ffhq2anime_adv_300_edge_2b"
+model_name: "ffhq2anime_paper_params_2"
 input_size: 256
 eval_freq: 1
 gan_loss_type: "gan"
@@ -20,9 +20,9 @@ num_discriminator_layers: 3
 spectral_norm: True
 discriminator_train_freq: 2
 
-# Hyperparameters
+# Hyperparameters -> lr 10
 lr_generator_init: 0.0002
-lr_generator: 0.00002
+lr_generator: 0.000010
 lr_discriminator: 0.00004
 batch_size: 12
 train_epochs: 101
