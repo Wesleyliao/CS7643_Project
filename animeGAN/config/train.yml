@@ -9,15 +9,15 @@ generate_smoothed_grayscale: False
 checkpoint_path: "./animeGAN/checkpoints"
 output_path: "./animeGAN/outputs"
 #load_checkpoint_fpath: "./animeGAN/checkpoints/reconstruction.pt"
-#load_checkpoint_fpath: "./animeGAN/checkpoints/paper_params_recon.pt"
-load_checkpoint_fpath: ""
+load_checkpoint_fpath: "./animeGAN/checkpoints/paper_params_recon.pt"
+#load_checkpoint_fpath: ""
 load_history: False
 
 # Model settings
-model_name: "paper_params_2"
+model_name: "paper_params_2_gan"
 input_size: 256
 eval_freq: 2
-gan_loss_type: "lsgan"
+gan_loss_type: "gan"
 # Discriminator
 num_discriminator_layers: 3
 spectral_norm: True
