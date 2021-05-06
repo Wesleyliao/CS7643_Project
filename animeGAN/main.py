@@ -321,9 +321,47 @@ def test(eval_img_loader):
         # save images
         img_grid.write()
 
+def test2(eval_img_loader):
+    from animeGAN.util.postprocess import RGB2BGR, tensor2numpy, denorm
+    # cuda
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    # fpath
+    output_dir = Path(CONFIG['output_path'])
+    load_checkpoint_fpath = Path(CONFIG['load_checkpoint_fpath']) if CONFIG['load_checkpoint_fpath'] else None
+
+    # model params
+    generator = Generator()
+    if load_checkpoint_fpath and load_checkpoint_fpath.exists():
+        _ = load_checkpoint(load_checkpoint_fpath, generator, None, None, None)
+        log.info(f'Loaded from checkpoint {load_checkpoint_fpath}')
+    else:
+        return
+
+    # move models to gpu
+    generator.to(device)
+    # output image grid
+    export_dir = output_dir / 'val' / 'fid'
+
+    #####################
+    # Eval
+    #####################
+    generator.eval()
+
+    with torch.no_grad():
+        img_id = 0
+        for eval_batch in get_pbar(eval_img_loader, total=len(eval_img_loader)):
+            eval_batch = eval_batch.to(device)
+
+            generated_images = generator(eval_batch)
+            generated_images = RGB2BGR(tensor2numpy(denorm(generated_images)))
+            for img in generated_images:
+                p = export_dir / f'{img_id}.png'
+                cv2.imwrite(str(p), img)
+
+                img_id += 1
 
 @click.command()
-@click.option('--mode', type=click.Choice(['train', 'test'], case_sensitive=False), default='train', help='Train or test mode')
+@click.option('--mode', type=click.Choice(['train', 'test', 'test2'], case_sensitive=False), default='train', help='Train or test mode')
 @click.option('--debug-mode', is_flag=True, help='Specify if running in debug mode')
 @click.option('--config-path', type=str, default='./animeGAN/config/train.yml', help='Path to config file')
 def main_cli(mode, debug_mode, config_path):
@@ -349,8 +387,6 @@ def main(mode, debug_mode, config_path):
         else:
             required_num_images = None
 
-    # print(f':::Running with config::: \n{yaml.dump(CONFIG, default_flow_style=False)}\n')
-
     # Check for GPU
     if torch.cuda.is_available():
         log.info(f'CUDA available: {torch.cuda.get_device_name(0)}')
@@ -358,19 +394,20 @@ def main(mode, debug_mode, config_path):
         log.info('CUDA not available.')
 
     # Get dataloaders
-    real_img_loader = get_dataloader(CONFIG['real_path'], False, CONFIG['batch_size'], CONFIG['input_size'], required_num_images=required_num_images)
-    anime_img_loader = get_dataloader(CONFIG['anime_style_path'], True, CONFIG['batch_size'], CONFIG['input_size'],
-                                      required_num_images=len(real_img_loader.dataset),
-                                      generate_smoothed_grayscale=CONFIG['generate_smoothed_grayscale'])
+    if mode.lower() == 'train':
+        real_img_loader = get_dataloader(CONFIG['real_path'], False, CONFIG['batch_size'], CONFIG['input_size'], required_num_images=required_num_images)
+        anime_img_loader = get_dataloader(CONFIG['anime_style_path'], True, CONFIG['batch_size'], CONFIG['input_size'],
+                                          required_num_images=len(real_img_loader.dataset),
+                                          generate_smoothed_grayscale=CONFIG['generate_smoothed_grayscale'])
+        data = next(iter(real_img_loader))
+        log.info(f'Real images shapes {data.size()}. Number of images {len(real_img_loader.dataset)}')
+
+        data = next(iter(anime_img_loader))
+        log.info(f'Anime images shapes {data.size()}. Number of images {len(anime_img_loader.dataset)}')
+
     eval_img_loader = get_dataloader(CONFIG['eval_path'], False, 8, CONFIG['input_size'], shuffle=False)
 
     # Test dataloader
-    data = next(iter(real_img_loader))
-    log.info(f'Real images shapes {data.size()}. Number of images {len(real_img_loader.dataset)}')
-
-    data = next(iter(anime_img_loader))
-    log.info(f'Anime images shapes {data.size()}. Number of images {len(anime_img_loader.dataset)}')
-
     data = next(iter(eval_img_loader))
     log.info(f'Eval images shapes {data.size()}. Number of images {len(eval_img_loader.dataset)}')
 
@@ -378,6 +415,8 @@ def main(mode, debug_mode, config_path):
         train(real_img_loader, anime_img_loader, eval_img_loader)
     if mode.lower() == 'test':
         test(eval_img_loader)
+    if mode.lower() == 'test2':
+        test2(eval_img_loader)
 
 
 if __name__ == '__main__':

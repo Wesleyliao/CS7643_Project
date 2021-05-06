@@ -1,14 +1,14 @@
 # Data paths
 real_path: "./animeGAN/data/real/"
 anime_style_path: "./animeGAN/data/Shinkai/style"
-#eval_path: "./data/ffhq_test/img"
-eval_path: "./animeGAN/data/val/imgs"
+#eval_path: "./data//ffhq_test/img"
+eval_path: "./animeGAN/data/ffhq2anime/trainA/style"
 generate_smoothed_grayscale: False
 
 # Other paths
 checkpoint_path: "./animeGAN/checkpoints"
 output_path: "./animeGAN/outputs"
-load_checkpoint_fpath: "./animeGAN/checkpoints/adv_20_edge_2.pt"
+load_checkpoint_fpath: "./animeGAN/checkpoints/trial2.pt"
 load_history: False
 
 # Model settings
